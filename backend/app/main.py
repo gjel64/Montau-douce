@@ -25,12 +25,33 @@ def create_user(jwt: str):
         res = cursor.fetchone()
         connexion.commit()
         cursor.close()
-        return {"res": res}
+        return {"result": res}
     except Exception as e:
         connexion.rollback()
         print("SERVER: error " + str(e))
         cursor.close()
-        return {"erreur": str(e)}
+        return {"error": str(e)}
+
+@app.post("/fill_user")
+def fill_user(id, name, tel, passwd):
+    connexion = DBConnection.getConnection()
+    cursor = connexion.cursor()
+    try:
+        cursor.execute(
+            f"""UPDATE users
+                SET user_name = '{name}', user_tel = '{tel}', user_passwd = '{passwd}'
+                WHERE user_id = {id}
+                RETURNING user_id;""",
+        )
+        res = cursor.fetchone()
+        connexion.commit()
+        cursor.close()
+        return {"result": res}
+    except Exception as e:
+        connexion.rollback()
+        print("SERVER: error " + str(e))
+        cursor.close()
+        return {"error": str(e)}
 
 
 def main():

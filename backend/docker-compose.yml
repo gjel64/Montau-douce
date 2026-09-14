@@ -15,13 +15,14 @@ services:
       timeout: 3s
       retries: 10
 
+  # --------- A retirer ---------
   adminer:
     image: adminer
     ports:
       - "8080:8080"
     depends_on:
       - db
-      
+
   app:
     build: .
     depends_on:
