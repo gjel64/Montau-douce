@@ -6,7 +6,10 @@ def create_db(connection):
         cursor.execute("""
         CREATE TABLE users (
             user_id SERIAL PRIMARY KEY,
-            user_name VARCHAR(255) NOT NULL
+            user_jwt VARCHAR(255) NOT NULL,
+            user_name VARCHAR(255),
+            user_tel VARCHAR(15),
+            user_passwd VARCHAR(255)
         )
         """)
 
