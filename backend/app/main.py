@@ -12,7 +12,7 @@ def ping_db():
     cursor = connexion.cursor()
     cursor.execute("SELECT version();")
     version = cursor.fetchone()
-    return {"postgres_version": version}
+    return {"result": version}
 
 @app.post("/create_user")
 def create_user(jwt: str):
