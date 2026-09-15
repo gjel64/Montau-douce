@@ -1,9 +1,9 @@
 ## API SERVEUR
 
 ```
-/ping (GET) -> version                                 : ping db
-/create_user(jwt) (POST) -> id                         : create new user from jwt
-/fill_user(id, name, tel, passwd) (POST) -> id         : fill user attributes from id
-/user_id_from_jwt(jwt) (GET) -> id                     : get id of the user from jwt
-/user_info_from_id(id) (GET) -> user_infos             : return user infos from id
+/ping (GET) -> version                                           : ping db, renvoie la version PostgreSQL
+/create_user(jwt, name, tel, passwd) (POST) -> id                : crée un nouvel utilisateur
+/fill_user(id?, jwt, name, tel, passwd) (POST) -> id             : met à jour les attributs d'un user (id déduit du jwt si absent)
+/get_user_info(id?, jwt?) (POST) -> name, tel, passwd                   : renvoie les infos d'un user à partir de son id
+```
 ```

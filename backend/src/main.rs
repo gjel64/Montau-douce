@@ -4,6 +4,7 @@
 //!   curl localhost:8000/ping
 //!   curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"name":"Mattin","tel":"1234567890","passwd":"password", "jwt":"token1"}'
 //!   curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"jwt":"token","name":"NULL","tel":"NULL","passwd":"NULL"}'
+//!   curl -X POST localhost:8000/get_user_info -H 'Content-Type: application/json' -d '{"id":1}'
 //! 
 
 use poem::{
@@ -34,7 +35,7 @@ async fn fill_user(Json(user): Json<Person>, Data(pool): Data<&PgPool>) -> Resul
         Some(id) => id as i32,
         None => get_id_from_jwt(pool, &user.jwt)
             .await?
-            .ok_or_else(|| poem::Error::from_string("User not found", StatusCode::NOT_FOUND))?,
+            .ok_or_else(|| poem::Error::from_string("ERROR: User not found", StatusCode::NOT_FOUND))?,
     };
 
     let (result,) : (i32,) = sqlx::query_as(
@@ -101,10 +102,16 @@ async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
 
 #[handler]
 async fn get_user_info(Data(pool): Data<&PgPool>, Json(id_json): Json<Value>) -> Result<Json<Value>> {
-    let id = id_json["id"]
-        .as_i64()
-        .ok_or_else(|| poem::Error::from_string("id manquant ou invalide", StatusCode::BAD_REQUEST))?
-        as i32;
+    let id = match id_json["id"].as_i64().map(|v| v as i32).filter(|&id| id > 0) {
+        Some(id) => id,
+        None => {
+            let jwt = id_json["jwt"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing JWT or ID", StatusCode::BAD_REQUEST))?;
+            get_id_from_jwt(pool, jwt)
+                .await?
+                .ok_or_else(|| poem::Error::from_string("ERROR: User not found", StatusCode::NOT_FOUND))?
+        }
+    };
+        
 
     let (name, tel, passwd): (String, String, String) = sqlx::query_as(
         "SELECT user_name, user_tel, user_passwd FROM users WHERE user_id = $1"
