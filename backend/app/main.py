@@ -53,6 +53,43 @@ def fill_user(id, name, tel, passwd):
         cursor.close()
         return {"error": str(e)}
 
+@app.get("/user_id_from_jwt")
+def user_id_from_jwt(jwt):
+    connexion = DBConnection.getConnection()
+    cursor = connexion.cursor()
+    try:
+        cursor.execute(
+            f"SELECT user_id FROM users WHERE user_jwt = '{jwt}'",
+        )
+        res = cursor.fetchone()[0]
+        connexion.commit()
+        cursor.close()
+        return {"result": res}
+    except Exception as e:
+        connexion.rollback()
+        print("SERVER: error " + str(e))
+        cursor.close()
+        return {"error": str(e)}
+
+@app.get("/user_info_from_id")
+def user_info_from_id(id):
+    connexion = DBConnection.getConnection()
+    cursor = connexion.cursor()
+    try:
+        cursor.execute(
+            f"SELECT * FROM users WHERE user_id = '{id}'",
+        )
+        res = cursor.fetchone()
+        connexion.commit()
+        cursor.close()
+        return {"result": res}
+    except Exception as e:
+        connexion.rollback()
+        print("SERVER: error " + str(e))
+        cursor.close()
+        return {"error": str(e)}
+
+
 
 def main():
     connection = DBConnection.getConnection()
