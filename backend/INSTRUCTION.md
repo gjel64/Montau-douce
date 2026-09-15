@@ -28,5 +28,5 @@ docker compose logs -f app
 ```
 
 ## Notes
-- Reconstruire (`--build`) seulement si `requirements.txt` change.
+- Reconstruire (`--build`) seulement si le `Dockerfile` change. Les dépendances (`Cargo.toml`) et le code (`src/`) sont recompilés automatiquement par `cargo watch`.
 - L'app se connecte à la base via `db` (nom du service), pas `localhost`.

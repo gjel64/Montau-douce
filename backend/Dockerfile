@@ -1,5 +1,5 @@
-FROM python:3.12-slim
+FROM rust:1-slim
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# cargo-watch = équivalent du --reload d'uvicorn : recompile et relance à chaque modif
+RUN cargo install cargo-watch --locked
 COPY . .

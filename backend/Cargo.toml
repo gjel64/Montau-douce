@@ -1,0 +1,10 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+poem = "3.1"                                              # framework web
+tokio = { version = "1", features = ["full"] }            # runtime async (poem tourne dessus)
+serde = { version = "1", features = ["derive"] }          # (dé)sérialisation JSON <-> struct
+sqlx = { version = "0.9", features = ["runtime-tokio", "postgres"] } # client Postgres async + pool

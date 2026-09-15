@@ -29,13 +29,17 @@ services:
       db:
         condition: service_healthy # attend le check den haut
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/montaudouce
-      PYTHONUNBUFFERED: 1 # affiche les print() dans les logs
+      DATABASE_URL: postgres://user:password@db:5432/montaudouce
+      CARGO_TARGET_DIR: /target # build hors du dossier monté (évite de polluer le mac)
     volumes:
       - .:/app
+      - cargo-registry:/usr/local/cargo/registry # cache des crates téléchargées
+      - cargo-target:/target # cache de compilation (sinon tout recompile à chaque up)
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: cargo watch -w src -w Cargo.toml -x run # recompile + relance à chaque modif
 
 volumes:
   pgdata:
+  cargo-registry:
+  cargo-target:
