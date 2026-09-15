@@ -1,114 +1,87 @@
 //! Exemple de base avec poem.
 //!
 //! Tester (serveur sur localhost:8000) :
-//!   curl localhost:8000/
-//!   curl localhost:8000/hello/Mattin
-//!   curl "localhost:8000/add?a=2&b=3"
-//!   curl -X POST localhost:8000/echo -H 'Content-Type: application/json' -d '{"name":"Mattin","age":20}'
+//!   curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"id":1,"name":"Mattin","tel":"1234567890","passwd":"password"}'
 //!   curl localhost:8000/ping
-//!   curl -i localhost:8000/error
-
+//!  curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"id":1,"jwt":"token","name":"NULL","tel":"NULL","passwd":"NULL"}'
 use poem::{
     EndpointExt, Result, Route, Server, get, handler, post,
     http::StatusCode,
     listener::TcpListener,
     web::{Data, Json, Path, Query},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize}; // Deserialize pour lire, Serialize pour renvoyer.
+use serde_json::{json, Value};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
-// ---------------------------------------------------------------------------
-// 1. Handler le plus simple : `#[handler]` transforme une fonction async en
-//    endpoint. Tout type qui implémente `IntoResponse` peut être retourné
-//    (&str, String, Json<T>, StatusCode, Result<T>, ...).
-// ---------------------------------------------------------------------------
-#[handler]
-async fn index() -> &'static str {
-    "Bonjour depuis poem !"
-}
 
-// ---------------------------------------------------------------------------
-// 2. Paramètre dans l'URL : /hello/:name
-//    Les "extracteurs" (Path, Query, Json, Data...) sont passés en arguments
-//    et poem les remplit automatiquement à partir de la requête.
-// ---------------------------------------------------------------------------
-#[handler]
-async fn hello(Path(name): Path<String>) -> String {
-    format!("Salut {name} !")
-}
 
-// ---------------------------------------------------------------------------
-// 3. Query string : /add?a=2&b=3
-//    On décrit les paramètres attendus dans une struct `Deserialize`.
-//    S'il en manque un ou s'il n'est pas du bon type -> 400 automatique.
-// ---------------------------------------------------------------------------
-#[derive(Deserialize)]
-struct AddParams {
-    a: i32,
-    b: i32,
-}
 
-#[handler]
-async fn add(Query(params): Query<AddParams>) -> String {
-    (params.a + params.b).to_string()
-}
-
-// ---------------------------------------------------------------------------
-// 4. Body JSON en entrée et JSON en sortie (POST)
-//    `Deserialize` pour lire, `Serialize` pour renvoyer.
-// ---------------------------------------------------------------------------
 #[derive(Deserialize)]
 struct Person {
+    id: u32,
+    jwt: String,
     name: String,
-    age: u32,
-}
-
-#[derive(Serialize)]
-struct Greeting {
-    message: String,
-    adult: bool,
+    tel: String,
+    passwd: String,
 }
 
 #[handler]
-async fn echo(Json(person): Json<Person>) -> Json<Greeting> {
-    Json(Greeting {
-        message: format!("Bienvenue {}", person.name),
-        adult: person.age >= 18,
-    })
-}
+async fn fill_user(Json(user): Json<Person>, Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
+    let result = sqlx::query(
+        "UPDATE users
+         SET user_name = $1, user_tel = $2, user_passwd = $3
+         WHERE user_id = $4
+         RETURNING user_id"
+    )
+    .bind(&user.name)
+    .bind(&user.tel)
+    .bind(&user.passwd)
+    .bind(user.id as i32)
+    .execute(pool)
+    .await
+    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
-// ---------------------------------------------------------------------------
-// 5. État partagé (ici le pool de connexions Postgres) avec `Data<&T>`.
-//    Le pool est ajouté une seule fois avec `.data(pool)` dans main().
-//    Retourner `Result<T>` permet d'utiliser `?` : l'erreur devient une 500.
-//    Toujours passer les valeurs avec `.bind()` (jamais format!) -> pas
-//    d'injection SQL.
-// ---------------------------------------------------------------------------
-#[derive(Serialize)]
-struct PingResponse {
-    result: String,
+    Ok(Json(json!({ "result": user.id })))
 }
 
 #[handler]
-async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<PingResponse>> {
+async fn create_user(Data(pool): Data<&PgPool>, Json(user): Json<Person>) -> Result<Json<Value>> {
+
+    let result = sqlx::query(
+        "INSERT INTO users (user_jwt, user_name, user_tel, user_passwd)
+         VALUES ($1, $2, $3, $4)
+         RETURNING user_id"
+    )
+    .bind(&user.jwt)
+    .bind(&user.name)
+    .bind(&user.tel)
+    .bind(&user.passwd)
+    .bind(user.id as i32)
+    .execute(pool)
+    .await
+    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(Json(json!({ "result": user.id })))
+}
+
+
+#[handler]
+async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
+
     let (version,): (String,) = sqlx::query_as("SELECT version()")
         .fetch_one(pool)
         .await
         .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    Ok(Json(PingResponse { result: version }))
+    print!("PostgreSQL version: {}", version);
+
+    Ok(Json(json!({ "result": version })))
 }
 
-// ---------------------------------------------------------------------------
-// 6. Renvoyer une erreur HTTP avec un code précis.
-// ---------------------------------------------------------------------------
-#[handler]
-async fn error() -> Result<String> {
-    Err(poem::Error::from_string(
-        "ceci est une erreur volontaire",
-        StatusCode::BAD_REQUEST,
-    ))
-}
+
+
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -131,16 +104,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )",
     )
     .execute(&pool)
-    .await?;
+    .await
+    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
 
     // Déclaration des routes : chemin -> méthode HTTP (get/post/put/delete) -> handler
     let app = Route::new()
-        .at("/", get(index))
-        .at("/hello/:name", get(hello))
-        .at("/add", get(add))
-        .at("/echo", post(echo))
+        .at("/fill_user", post(fill_user))
+        .at("/create_user", post(create_user))
         .at("/ping", get(ping))
-        .at("/error", get(error))
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");
