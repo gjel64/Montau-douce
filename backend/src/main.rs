@@ -99,7 +99,23 @@ async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
     Ok(Json(json!({ "result": version })))
 }
 
+#[handler]
+async fn get_user_info(Data(pool): Data<&PgPool>, Json(id_json): Json<Value>) -> Result<Json<Value>> {
+    let id = id_json["id"]
+        .as_i64()
+        .ok_or_else(|| poem::Error::from_string("id manquant ou invalide", StatusCode::BAD_REQUEST))?
+        as i32;
 
+    let (name, tel, passwd): (String, String, String) = sqlx::query_as(
+        "SELECT user_name, user_tel, user_passwd FROM users WHERE user_id = $1"
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(Json(json!({ "name": name, "tel": tel, "passwd": passwd })))
+}
 
 
 
@@ -107,7 +123,7 @@ async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = std::env::var("DATABASE_URL")?;
 
-    // Pool de connexions : remplace le singleton Python
+    // Pool de connexions
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
@@ -130,6 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Route::new()
         .at("/fill_user", post(fill_user))
         .at("/create_user", post(create_user))
+        .at("/get_user_info", post(get_user_info))
         .at("/ping", get(ping))
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
