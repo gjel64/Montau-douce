@@ -18,6 +18,10 @@ use serde_json::{json, Value};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 
+mod utils;
+use utils::db_creation::create_db;
+
+
 
 #[derive(Deserialize)]
 struct Person {
@@ -136,18 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&database_url)
         .await?;
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS users (
-            user_id SERIAL PRIMARY KEY,
-            user_jwt VARCHAR(255) NOT NULL UNIQUE,
-            user_name VARCHAR(255),
-            user_tel VARCHAR(15),
-            user_passwd VARCHAR(255)
-        )",
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    create_db(&pool).await?;
 
     // Déclaration des routes : chemin -> méthode HTTP (get/post/put/delete) -> handler
     let app = Route::new()
