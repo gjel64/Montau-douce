@@ -1,6 +1,13 @@
 use sqlx::PgPool;
 
 pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
+
+    sqlx::query(
+        "CREATE EXTENSION IF NOT EXISTS earthdistance CASCADE",
+    )
+    .execute(pool)
+    .await?;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
             user_id SERIAL PRIMARY KEY,
@@ -8,7 +15,8 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             user_name VARCHAR(255),
             user_tel VARCHAR(15),
             user_passwd VARCHAR(255),
-            user_address VARCHAR(255),
+            lat double precision,
+            lng double precision,
             user_ics VARCHAR(255)
         )",
     )
@@ -18,7 +26,8 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS stop (
             stop_id SERIAL PRIMARY KEY,
-            stop_location VARCHAR(255) NOT NULL,
+            lat double precision NOT NULL,
+            lng double precision NOT NULL,
             user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE
         )",
     )
@@ -31,8 +40,10 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             ride_start TIMESTAMPTZ,
             ride_time INTERVAL,
-            ride_start_location VARCHAR(255),
-            ride_end_location VARCHAR(255)
+            lat_start double precision NOT NULL,
+            lng_start double precision NOT NULL,
+            lat_end double precision NOT NULL,
+            lng_end double precision NOT NULL
         )",
     )
     .execute(pool)
@@ -48,6 +59,17 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
         )",
     )
     .execute(pool)
+    .await?;
+
+
+    // Fill with false values TODO: Delete it
+    sqlx::query(
+        "INSERT INTO users (user_jwt, user_name, user_tel, user_passwd, lat, lng)
+         VALUES ('123', 'name1', '1234567890', 'passwd1', 43.4945144, -1.4736657),
+                ('456', 'name2', '0987654321', 'passwd2', 43.48865617841056, -1.482401353452829),
+                ('789', 'name3', '1112223333', 'passwd3', 43.48177175173004, -1.5097996424168958),
+                ('abc', 'name4', '4445556666', 'passwd4', 43.48602875354883, -1.490129772560247)"
+    ).execute(pool)
     .await?;
 
     Ok(())

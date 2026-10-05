@@ -1,11 +1,13 @@
-//! Exemple de base avec poem.
-//!
-//! Tester (serveur sur localhost:8000) :
-//!   curl localhost:8000/ping
-//!   curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0601020304","passwd":"secret"}'
-//!   curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0611111111","passwd":"nouveau"}'
-//!   curl -X POST localhost:8000/get_user_info -H 'Content-Type: application/json' -d '{"id":1}'
-//!
+
+
+/*
+curl localhost:8000/ping
+curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0601020304","passwd":"secret"}'
+curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0611111111","passwd":"nouveau"}'
+curl -X POST localhost:8000/get_user_info -H 'Content-Type: application/json' -d '{"id":1}'
+curl -X POST localhost:8000/get_possible_ride -H 'Content-Type: application/json' -d '{"id":1}'
+*/
+
 
 use poem::{
     EndpointExt, Result, Route, Server, get, post,
@@ -16,7 +18,7 @@ use sqlx::{postgres::PgPoolOptions};
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{fill_user, create_user, get_user_info, ping};
+use utils::db_interaction::{fill_user, create_user, get_user_info, ping, get_possible_ride};
 
 
 #[tokio::main]
@@ -29,7 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&database_url)
         .await?;
 
-    create_db(&pool).await?;
+    match create_db(&pool).await {
+        Ok(_) => println!("SERVER: Database created successfully"),
+        Err(e) => eprintln!("SERVER ERROR: Failed to create database: {e}"),
+    }
 
     // Déclaration des routes : chemin -> méthode HTTP (get/post/put/delete) -> handler
     let app = Route::new()
@@ -37,6 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/create_user", post(create_user))
         .at("/get_user_info", post(get_user_info))
         .at("/ping", get(ping))
+        .at("/get_possible_ride", post(get_possible_ride))
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");
