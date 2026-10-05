@@ -1,1 +1,0 @@
-- faire un pool de connexion au lieu d'un singleton simple -> absolument !!!

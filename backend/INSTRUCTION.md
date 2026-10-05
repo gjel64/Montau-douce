@@ -1,3 +1,8 @@
+## Première fois
+```bash
+cp .env.example .env   # puis mettre un vrai mot de passe dans .env
+```
+
 ## Lancer le projet
 ```bash
 docker compose up --build

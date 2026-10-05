@@ -2,11 +2,12 @@
 //!
 //! Tester (serveur sur localhost:8000) :
 //!   curl localhost:8000/ping
-//!   curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"name":"Mattin","tel":"1234567890","passwd":"password", "jwt":"token1"}'
-//!   curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"jwt":"token","name":"NULL","tel":"NULL","passwd":"NULL"}'
+//!   curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0601020304","passwd":"secret"}'
+//!   curl -X POST localhost:8000/fill_user -H 'Content-Type: application/json' -d '{"jwt":"token1","name":"Mattin","tel":"0611111111","passwd":"nouveau"}'
 //!   curl -X POST localhost:8000/get_user_info -H 'Content-Type: application/json' -d '{"id":1}'
-//! 
+//!
 
+use argon2::{Argon2, password_hash::PasswordHasher};
 use poem::{
     EndpointExt, Result, Route, Server, get, handler, post,
     http::StatusCode,
@@ -25,36 +26,39 @@ use utils::db_creation::create_db;
 
 #[derive(Deserialize)]
 struct Person {
-    #[serde(default)] // rend id optionnel
-    id: Option<u32>,
     jwt: String,
     name: String,
     tel: String,
     passwd: String,
 }
 
+// Log l'erreur côté serveur, renvoie une 500 sans détails au client
+fn internal_err(e: impl std::fmt::Display) -> poem::Error {
+    eprintln!("ERROR: {e}");
+    StatusCode::INTERNAL_SERVER_ERROR.into()
+}
+
+fn hash(passwd: &str) -> Result<String> {
+    Ok(Argon2::default().hash_password(passwd.as_bytes()).map_err(internal_err)?.to_string())
+}
+
 #[handler]
 async fn fill_user(Json(user): Json<Person>, Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
-    let id = match user.id {
-        Some(id) => id as i32,
-        None => get_id_from_jwt(pool, &user.jwt)
-            .await?
-            .ok_or_else(|| poem::Error::from_string("ERROR: User not found", StatusCode::NOT_FOUND))?,
-    };
-
-    let (result,) : (i32,) = sqlx::query_as(
+    // id toujours déduit du jwt : on ne modifie que son propre compte
+    let (result,) = sqlx::query_as::<_, (i32,)>(
         "UPDATE users
          SET user_name = $1, user_tel = $2, user_passwd = $3
-         WHERE user_id = $4
+         WHERE user_jwt = $4
          RETURNING user_id"
     )
     .bind(&user.name)
     .bind(&user.tel)
-    .bind(&user.passwd)
-    .bind(id as i32)
-    .fetch_one(pool)
+    .bind(hash(&user.passwd)?)
+    .bind(&user.jwt)
+    .fetch_optional(pool)
     .await
-    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    .map_err(internal_err)?
+    .ok_or_else(|| poem::Error::from_string("ERROR: User not found", StatusCode::NOT_FOUND))?;
 
     Ok(Json(json!({ "result": result })))
 }
@@ -70,10 +74,10 @@ async fn create_user(Data(pool): Data<&PgPool>, Json(user): Json<Person>) -> Res
     .bind(&user.jwt)
     .bind(&user.name)
     .bind(&user.tel)
-    .bind(&user.passwd)
+    .bind(hash(&user.passwd)?)
     .fetch_one(pool)
     .await
-    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    .map_err(internal_err)?;
 
     Ok(Json(json!({ "id": id })))
 }
@@ -85,7 +89,7 @@ async fn get_id_from_jwt(pool: &PgPool, jwt: &str) -> Result<Option<i32>> {
     .bind(jwt)
     .fetch_optional(pool)
     .await
-    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    .map_err(internal_err)?;
 
     Ok(result.map(|(id,)| id))
 }
@@ -97,7 +101,7 @@ async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
     let (version,): (String,) = sqlx::query_as("SELECT version()")
         .fetch_one(pool)
         .await
-        .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+        .map_err(internal_err)?;
 
     print!("PostgreSQL version: {}", version);
 
@@ -115,17 +119,17 @@ async fn get_user_info(Data(pool): Data<&PgPool>, Json(id_json): Json<Value>) ->
                 .ok_or_else(|| poem::Error::from_string("ERROR: User not found", StatusCode::NOT_FOUND))?
         }
     };
-        
 
-    let (name, tel, passwd): (String, String, String) = sqlx::query_as(
-        "SELECT user_name, user_tel, user_passwd FROM users WHERE user_id = $1"
+
+    let (name, tel): (String, String) = sqlx::query_as(
+        "SELECT user_name, user_tel FROM users WHERE user_id = $1"
     )
     .bind(id)
     .fetch_one(pool)
     .await
-    .map_err(|e| poem::Error::new(e, StatusCode::INTERNAL_SERVER_ERROR))?;
+    .map_err(internal_err)?;
 
-    Ok(Json(json!({ "name": name, "tel": tel, "passwd": passwd })))
+    Ok(Json(json!({ "name": name, "tel": tel })))
 }
 
 
