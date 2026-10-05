@@ -9,8 +9,7 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             user_tel VARCHAR(15),
             user_passwd VARCHAR(255),
             user_address VARCHAR(255),
-            user_ics VARCHAR(255),
-
+            user_ics VARCHAR(255)
         )",
     )
     .execute(pool)
