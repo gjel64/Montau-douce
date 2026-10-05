@@ -1,4 +1,5 @@
 # MONTAU'DOUCE
 
 ## SERVEUR
-[DOCS](./backend/DOCS.md)
+[DOCS](./backend/DOCS.md)  
+[INSTRUCTION](./backend/INSTRUCTION.md)
