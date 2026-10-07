@@ -11,7 +11,6 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
             user_id SERIAL PRIMARY KEY,
-            user_jwt VARCHAR(255) NOT NULL UNIQUE,
             user_name VARCHAR(255),
             user_tel VARCHAR(15),
             user_passwd VARCHAR(255),
@@ -61,14 +60,22 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS sessions (
+            token_hash BYTEA PRIMARY KEY,
+            user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            expires_at TIMESTAMPTZ NOT NULL DEFAULT now() + interval '60 days'
+        );",
+    ).execute(pool).await?;
+
 
     // Fill with false values TODO: Delete it
     sqlx::query(
-        "INSERT INTO users (user_jwt, user_name, user_tel, user_passwd, lat, lng)
-         VALUES ('123', 'name1', '1234567890', 'passwd1', 43.4945144, -1.4736657),
-                ('456', 'name2', '0987654321', 'passwd2', 43.48865617841056, -1.482401353452829),
-                ('789', 'name3', '1112223333', 'passwd3', 43.48177175173004, -1.5097996424168958),
-                ('abc', 'name4', '4445556666', 'passwd4', 43.48602875354883, -1.490129772560247)"
+        "INSERT INTO users (user_name, user_tel, user_passwd, lat, lng)
+         VALUES ('name1', '1234567890', 'passwd1', 43.4945144, -1.4736657),
+                ('name2', '0987654321', 'passwd2', 43.48865617841056, -1.482401353452829),
+                ('name3', '1112223333', 'passwd3', 43.48177175173004, -1.5097996424168958),
+                ('name4', '4445556666', 'passwd4', 43.48602875354883, -1.490129772560247)"
     ).execute(pool)
     .await?;
 

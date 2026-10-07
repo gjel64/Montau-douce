@@ -18,7 +18,7 @@ use sqlx::{postgres::PgPoolOptions};
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{fill_user, create_user, get_user_info, ping, get_possible_ride};
+use utils::db_interaction::{create_user, get_user_info, ping, get_possible_ride};
 
 
 #[tokio::main]
@@ -38,7 +38,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Déclaration des routes : chemin -> méthode HTTP (get/post/put/delete) -> handler
     let app = Route::new()
-        .at("/fill_user", post(fill_user))
         .at("/create_user", post(create_user))
         .at("/get_user_info", post(get_user_info))
         .at("/ping", get(ping))
