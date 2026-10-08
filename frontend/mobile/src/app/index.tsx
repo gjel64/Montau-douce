@@ -1,9 +1,13 @@
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, Button } from "react-native";
+import { useRouter } from 'expo-router';
 
 export default function Index() {
+  const router = useRouter();
   return (
-    <View style={styles.container}>
-      <Text>Edit src/app/index.tsx to edit this screen.</Text>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>Accueil</Text>
+
+      <Button title="Aller aux détails" onPress={() => router.push('/map')} />
     </View>
   );
 }

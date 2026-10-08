@@ -24,6 +24,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Utilise ta position pour l'afficher sur la carte."
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
