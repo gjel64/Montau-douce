@@ -1,5 +1,7 @@
 use sqlx::PgPool;
 
+use crate::utils::db_interaction::hash;
+
 pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
@@ -69,14 +71,17 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     ).execute(pool).await?;
 
 
+    let passwd = hash("mdp").unwrap();
     // Fill with false values TODO: Delete it
     sqlx::query(
         "INSERT INTO users (user_name, user_tel, user_passwd, lat, lng)
-         VALUES ('name1', '1234567890', 'passwd1', 43.4945144, -1.4736657),
-                ('name2', '0987654321', 'passwd2', 43.48865617841056, -1.482401353452829),
-                ('name3', '1112223333', 'passwd3', 43.48177175173004, -1.5097996424168958),
-                ('name4', '4445556666', 'passwd4', 43.48602875354883, -1.490129772560247)"
-    ).execute(pool)
+         VALUES ('name1', '1234567890', $1, 43.4945144, -1.4736657),
+                ('name2', '0987654321', $1, 43.48865617841056, -1.482401353452829),
+                ('name3', '1112223333', $1, 43.48177175173004, -1.5097996424168958),
+                ('name4', '4445556666', $1, 43.48602875354883, -1.490129772560247)"
+    )
+    .bind(passwd)
+    .fetch_optional(pool)
     .await?;
 
     Ok(())
