@@ -17,7 +17,7 @@ use sqlx::{postgres::PgPoolOptions};
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{auth, create_user, ping, get_possible_ride};
+use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc};
 
 
 #[tokio::main]
@@ -41,6 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/auth", post(auth))
         .at("/ping", get(ping))
         .at("/get_possible_ride", post(get_possible_ride))
+        .at("/fill_user_loc", post(fill_user_loc))
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");

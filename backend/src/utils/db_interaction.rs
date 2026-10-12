@@ -53,7 +53,7 @@ pub async fn create_user(Data(pool): Data<&PgPool>, Json(user): Json<Value>) -> 
     .map_err(internal_err)?;
 
     if existing.is_some() {
-        return Err(poem::Error::from_string("ERROR: tel already used", StatusCode::CONFLICT));
+        return Err(poem::Error::from_string("ERROR: user already created", StatusCode::CONFLICT));
     }
 
     let (id,): (i32,) = sqlx::query_as(
@@ -115,6 +115,43 @@ pub async fn auth(Data(pool): Data<&PgPool>, Json(auth_json): Json<Value>) -> Re
 
     // Seul le hash du token est stocké en base : impossible de renvoyer l'ancien, on en crée un nouveau
     create_session(pool, id).await
+}
+
+#[handler]
+pub async fn fill_user_loc(Data(pool): Data<&PgPool>, Json(data): Json<Value>) -> Result<Json<Value>>{
+
+    let id = data["id"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing id", StatusCode::BAD_REQUEST))?;
+    let lat = data["lat"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat", StatusCode::BAD_REQUEST))?;
+    let lng = data["lng"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng", StatusCode::BAD_REQUEST))?;
+
+    // Le tel sert d'identifiant pour /auth : il doit être unique
+    let existing: Option<(i32,)> = sqlx::query_as(
+        "SELECT 1 FROM users WHERE user_id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    if ! existing.is_some() {
+        return Err(poem::Error::from_string("ERROR: user don't exist", StatusCode::CONFLICT));
+    }
+
+    let (id,): (i32,) = sqlx::query_as(
+        "UPDATE users
+         SET lat = $2, lng = $3
+         WHERE user_id = $1;
+        "
+    )
+    .bind(id)
+    .bind(lat)
+    .bind(lng)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({"result": "updated"})))
+    
 }
 
 
