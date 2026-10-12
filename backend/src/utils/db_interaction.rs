@@ -198,7 +198,7 @@ async fn create_session(pool: &PgPool, user_id: i32) -> Result<Json<Value>> {
 
 async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f64) -> Result<Json<Value>> {
     let users: Vec<(String, String)> = sqlx::query_as::<_, (String, String)>(
-        "SELECT user_name, user_tel
+        "SELECT lat, lng
          FROM users
          WHERE earth_distance(ll_to_earth(lat, lng), ll_to_earth($1, $2)) < $3"
     )
@@ -210,9 +210,9 @@ async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f
     .map_err(internal_err)?;
 
     let result: Vec<Value> = users.into_iter()
-        .map(|(name, tel)| json!({ "name": name, "tel": tel }))
+        .map(|(lat, lng)| json!({ "lat": lat, "tel": lng }))
         .collect();
 
-    Ok(Json(json!({ "users": result })))
+    Ok(Json(json!({ "users_pos": result })))
 
 }
