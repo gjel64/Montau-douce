@@ -71,21 +71,6 @@ pub async fn create_user(Data(pool): Data<&PgPool>, Json(user): Json<Value>) -> 
     create_session(pool, id).await
 }
 
-#[handler]
-pub async fn get_user_info(Data(pool): Data<&PgPool>, Json(id_json): Json<Value>) -> Result<Json<Value>> {
-    let id = id_json["id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ID", StatusCode::BAD_REQUEST))? as i32;
-
-    let (name, tel): (String, String) = sqlx::query_as(
-        "SELECT user_name, user_tel FROM users WHERE user_id = $1"
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await
-    .map_err(internal_err)?;
-
-    Ok(Json(json!({ "name": name, "tel": tel })))
-}
-
 
 #[handler]
 pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(token_json): Json<Value>) -> Result<Json<Value>> {

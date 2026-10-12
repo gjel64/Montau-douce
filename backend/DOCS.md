@@ -7,8 +7,7 @@
 /auth(tel, passwd) (POST) -> token, expires_at                  : vérifie le mot de passe et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 /fill_user_loc(token, lat, long) (POST)                        : fill user lat and long from id TODO:
 /fill user_ics(token, ics) (POST)                               : fill user ics from id TODO:
-/get_user_info(id) (POST) -> name, tel                    : renvoie les infos d'un user à partir de son id
-/get_possible_ride(token) (POST) -> Json(list<name, tel>)    : à partir du token d'une personne, voit les ride qui sont à côté TODO: 
+/get_possible_ride(token) (POST) -> Json(list<name, tel>)    : à partir du token d'une personne, voit les ride qui sont à côté
 ```
 
 ## INTERNE
