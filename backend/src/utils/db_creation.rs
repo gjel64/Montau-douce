@@ -57,7 +57,7 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             ride_id SERIAL PRIMARY KEY,
             user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
             ride_start TIMESTAMPTZ,
-            ride_time INTERVAL,
+            ride_goal_time TIMESTAMPTZ,
             lat_start double precision NOT NULL,
             lng_start double precision NOT NULL,
             lat_end double precision NOT NULL,
