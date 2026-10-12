@@ -30,23 +30,12 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
             user_id SERIAL PRIMARY KEY,
-            user_name VARCHAR(255),
-            user_tel VARCHAR(15),
+            user_name VARCHAR(255) UNIQUE NOT NULL,
+            user_tel VARCHAR(16) UNIQUE NOT NULL,
             user_passwd VARCHAR(255),
             lat double precision,
             lng double precision,
             user_ics VARCHAR(255)
-        )",
-    )
-    .execute(pool)
-    .await?;
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS stop (
-            stop_id SERIAL PRIMARY KEY,
-            lat double precision NOT NULL,
-            lng double precision NOT NULL,
-            user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE
         )",
     )
     .execute(pool)
@@ -76,8 +65,11 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS ride_stop (
+            stop_id SERIAL,
             ride_id INT NOT NULL REFERENCES ride(ride_id) ON DELETE CASCADE,
-            stop_id INT NOT NULL REFERENCES stop(stop_id) ON DELETE CASCADE,
+            user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            stop_lat double precision NOT NULL,
+            stop_lng double precision NOT NULL,
             stop_order INT NOT NULL,
             status INT NOT NULL,
             PRIMARY KEY (ride_id, stop_id),
@@ -111,7 +103,7 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
                 ('name4', '4445556666', $1, 43.48602875354883, -1.490129772560247)"
     )
     .bind(passwd)
-    .fetch_optional(pool)
+    .execute(pool)
     .await?;
 
     Ok(())
