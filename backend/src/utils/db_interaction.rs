@@ -243,7 +243,7 @@ async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f
     .map_err(internal_err)?;
 
     let result: Vec<Value> = users.into_iter()
-        .map(|(lat, lng)| json!({ "lat": lat, "tel": lng }))
+        .map(|(lat, lng)| json!({ "lat": lat, "lng": lng }))
         .collect();
 
     Ok(Json(json!({ "users_pos": result })))
