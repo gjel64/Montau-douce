@@ -4,7 +4,10 @@
 curl localhost:8000/ping
 curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"name":"Mattin","tel":"0601020304","passwd":"secret"}'
 curl -X POST localhost:8000/auth -H 'Content-Type: application/json' -d '{"tel":"0601020304","passwd":"secret"}'
+curl -X POST localhost:8000/fill_user_loc -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat":43.48865617841056, "lng":-1.482401353452829}'
 curl -X POST localhost:8000/get_possible_ride -H 'Content-Type: application/json' -d '{"token":"<token>"}'
+curl -X POST localhost:8000/fill_user_ics -H 'Content-Type: application/json' -d '{"token" : "<token>", "ics":"test_ics"}'
+
 */
 
 
@@ -17,7 +20,7 @@ use sqlx::{postgres::PgPoolOptions};
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc};
+use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics};
 
 
 #[tokio::main]
@@ -42,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/ping", get(ping))
         .at("/get_possible_ride", post(get_possible_ride))
         .at("/fill_user_loc", post(fill_user_loc))
+        .at("fill_user_ics", fill_user_ics)
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");

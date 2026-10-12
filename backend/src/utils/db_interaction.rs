@@ -30,8 +30,6 @@ pub async fn ping(Data(pool): Data<&PgPool>) -> Result<Json<Value>> {
         .await
         .map_err(internal_err)?;
 
-    print!("PostgreSQL version: {}", version);
-
     Ok(Json(json!({ "result": version })))
 }
 
@@ -71,35 +69,28 @@ pub async fn create_user(Data(pool): Data<&PgPool>, Json(user): Json<Value>) -> 
     create_session(pool, id).await
 }
 
+
 #[handler]
 pub async fn fill_user_loc(Data(pool): Data<&PgPool>, Json(data): Json<Value>) -> Result<Json<Value>>{
 
-    let id = data["id"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing id", StatusCode::BAD_REQUEST))?;
-    let lat = data["lat"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat", StatusCode::BAD_REQUEST))?;
-    let lng = data["lng"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng", StatusCode::BAD_REQUEST))?;
+    let token = data["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let lat = data["lat"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat", StatusCode::BAD_REQUEST))?;
+    let lng = data["lng"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng", StatusCode::BAD_REQUEST))?;
 
-    let existing: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM users WHERE user_id = $1"
-    )
-    .bind(id)
-    .fetch_optional(pool)
+    let id = get_user_id_from_token(pool, token)
     .await
-    .map_err(internal_err)?;
-
-    if ! existing.is_some() {
-        return Err(poem::Error::from_string("ERROR: user don't exist", StatusCode::CONFLICT));
-    }
+    .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
 
     sqlx::query(
         "UPDATE users
-         SET lat = $2, lng = $3
-         WHERE user_id = $1;
+        SET lat = $2, lng = $3
+        WHERE user_id = $1;
         "
     )
     .bind(id)
     .bind(lat)
     .bind(lng)
-    .fetch_one(pool)
+    .execute(pool)
     .await
     .map_err(internal_err)?;
 
@@ -107,39 +98,33 @@ pub async fn fill_user_loc(Data(pool): Data<&PgPool>, Json(data): Json<Value>) -
     
 }
 
+
 #[handler]
 pub async fn fill_user_ics(Data(pool): Data<&PgPool>, Json(data): Json<Value>) -> Result<Json<Value>>{
 
-    let id = data["id"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing id", StatusCode::BAD_REQUEST))?;
-    let ics = data["ics"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat", StatusCode::BAD_REQUEST))?;
+    let token = data["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ics = data["ics"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing ics", StatusCode::BAD_REQUEST))?;
 
-    let existing: Option<(i32,)> = sqlx::query_as(
-        "SELECT 1 FROM users WHERE user_id = $1"
-    )
-    .bind(id)
-    .fetch_optional(pool)
+        let id = get_user_id_from_token(pool, token)
     .await
-    .map_err(internal_err)?;
-
-    if ! existing.is_some() {
-        return Err(poem::Error::from_string("ERROR: user don't exist", StatusCode::CONFLICT));
-    }
+    .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
 
     sqlx::query(
         "UPDATE users
-         SET ics = $2
+         SET user_ics = $2
          WHERE user_id = $1;
         "
     )
     .bind(id)
     .bind(ics)
-    .fetch_one(pool)
+    .execute(pool)
     .await
     .map_err(internal_err)?;
 
     Ok(Json(json!({"result": "updated"})))
     
 }
+
 
 #[handler]
 pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(token_json): Json<Value>) -> Result<Json<Value>> {
@@ -158,7 +143,7 @@ pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(token_json): Json
     .map_err(internal_err)?;
 
 
-    get_users_near(Data(pool), lat, lng, DEFAULT_RADIUS).await
+    get_users_near(Data(pool), lat, lng, DEFAULT_RADIUS, id_user).await
 }
 
 
@@ -229,15 +214,17 @@ async fn create_session(pool: &PgPool, user_id: i32) -> Result<Json<Value>> {
 }
 
 
-async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f64) -> Result<Json<Value>> {
+async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f64, exclude_id: i32) -> Result<Json<Value>> {
     let users: Vec<(f64, f64)> = sqlx::query_as::<_, (f64, f64)>(
         "SELECT lat, lng
          FROM users
-         WHERE earth_distance(ll_to_earth(lat, lng), ll_to_earth($1, $2)) < $3"
+         WHERE user_id <> $4
+           AND earth_distance(ll_to_earth(lat, lng), ll_to_earth($1, $2)) < $3"
     )
     .bind(lat)
     .bind(lng)
     .bind(radius)
+    .bind(exclude_id)
     .fetch_all(pool)
     .await
     .map_err(internal_err)?;
@@ -247,5 +234,4 @@ async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f
         .collect();
 
     Ok(Json(json!({ "users_pos": result })))
-
 }

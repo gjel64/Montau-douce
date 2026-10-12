@@ -9,7 +9,7 @@
 
 /auth(tel, passwd) (POST) -> token, expires_at               : verif mdp et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 
-/get_possible_ride(token) (POST) -> Json(list<lat, long>)    : à partir du token d'une personne, voit les ride qui sont à côté
+/get_possible_ride(token) (POST) -> Json(user_pos : [lat, long])  : get lat lng of rides from token
 ```
 
 ## INTERNE
