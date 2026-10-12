@@ -2,6 +2,23 @@ use sqlx::PgPool;
 
 use crate::utils::db_interaction::hash;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[repr(i32)]
+pub enum RideType {
+    Car = 0,
+    Bike = 1,
+    Bus = 2,
+    Walk = 3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[repr(i32)]
+pub enum StopStatus {
+    OnDemand = 0,
+    Accepted = 1,
+    Canceled = 2,
+}
+
 pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
@@ -44,23 +61,36 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             lat_start double precision NOT NULL,
             lng_start double precision NOT NULL,
             lat_end double precision NOT NULL,
-            lng_end double precision NOT NULL
+            lng_end double precision NOT NULL,
+            type INT NOT NULL
         )",
     )
     .execute(pool)
     .await?;
+    /* type {
+        0 : car
+        1 : bike
+        2 : bus
+        3 : walk
+    } */
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS ride_stop (
             ride_id INT NOT NULL REFERENCES ride(ride_id) ON DELETE CASCADE,
             stop_id INT NOT NULL REFERENCES stop(stop_id) ON DELETE CASCADE,
             stop_order INT NOT NULL,
+            status INT NOT NULL,
             PRIMARY KEY (ride_id, stop_id),
             UNIQUE (ride_id, stop_order) DEFERRABLE INITIALLY DEFERRED
         )",
     )
     .execute(pool)
     .await?;
+    /* status {
+        0 : on demand
+        1 : accepted
+        2 : canceled
+    } */
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS sessions (
