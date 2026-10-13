@@ -260,6 +260,27 @@ pub async fn delete_user(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
     Ok(Json(json!({ "result": "deleted" })))
 }
 
+#[handler]
+pub async fn get_my_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let row: Option<(String, String, Option<f64>, Option<f64>, Option<String>)> = sqlx::query_as(
+        "SELECT user_name, user_tel, lat, lng, user_ics FROM users WHERE user_id = $1"
+    )
+    .bind(id_user)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let (user_name, user_tel, lat, lng, user_ics) = row.ok_or_else(|| poem::Error::from_string("ERROR: Cannot find user from id", StatusCode::UNAUTHORIZED))?;
+
+    Ok(Json(json!({ "user_name": user_name, "user_tel": user_tel, "lat": lat, "lng": lng, "user_ics": user_ics })))
+}
 
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(

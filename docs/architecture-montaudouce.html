@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Montau’Douce</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --color-rule:    rgba(45,49,66,0.12);
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1320px; width: 100%; min-width: 0; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 52rem;
+      line-height: 1.5;
+    }
+
+    svg { width: 100%; min-width: 1280px; display: block; }
+
+    footer {
+      margin-top: 1.25rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--color-rule);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--color-muted);
+      line-height: 1.6;
+    }
+
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Montau’Douce</p>
+    <h1>Architecture de Montau’Douce</h1>
+    <p class="subtitle">État au sprint 1. En trait plein, ce qui est déjà codé dans le dépôt ; en pointillés, ce qui est prévu, avec son sprint.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="architecture-montaudouce-title architecture-montaudouce-desc">
+        <title id="architecture-montaudouce-title">Architecture de Montau’Douce</title>
+        <desc id="architecture-montaudouce-desc">Architecture de l’application de mobilité douce Montau’Douce : une app Expo (iOS, Android, web) appelle une API Rust conteneurisée avec sa base PostgreSQL, et les services d’IA, d’horaires de bus, de distance et de notifications push sont prévus pour les prochains sprints.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <g transform="translate(0,-24)">
+        <!-- ============ ZONES (drawn first) ============ -->
+        <!-- Zone: Serveur · Docker Compose -->
+        <rect x="376" y="88" width="320" height="472" rx="8"
+              fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="458" y="92" width="156" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="536" y="101" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.14em">SERVEUR · DOCKER COMPOSE</text>
+
+        <!-- Zone: Services externes -->
+        <rect x="920" y="88" width="320" height="472" rx="8"
+              fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="1024" y="92" width="112" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1080" y="101" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.14em">SERVICES EXTERNES</text>
+
+        <!-- ============ ARROWS (before nodes) ============ -->
+        <!-- A1 App -> API : HTTP JSON (existing) -->
+        <line x1="260" y1="320" x2="416" y2="320" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- A2 App -> Fonds de carte (existing) -->
+        <line x1="150" y1="360" x2="150" y2="464" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- A3 API -> PostgreSQL (existing) -->
+        <line x1="536" y1="360" x2="536" y2="456" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- A4 API -> IA (planned) -->
+        <line x1="536" y1="280" x2="536" y2="184" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <!-- A5 API -> API distance (planned), upper port -->
+        <path d="M 656,300 H 752 Q 760,300 760,292 V 160 Q 760,152 768,152 H 960"
+              fill="none" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-link)"/>
+        <!-- A6 API -> API bus temps réel (planned), middle port -->
+        <line x1="656" y1="320" x2="960" y2="320" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-link)"/>
+        <!-- A7 API -> Notifications push (planned), lower port -->
+        <path d="M 656,340 H 800 Q 808,340 808,348 V 488 Q 808,496 816,496 H 960"
+              fill="none" stroke="#2e5aa8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-link)"/>
+
+        <!-- ============ ARROW LABELS (masked, 8px gap) ============ -->
+        <rect x="302" y="300" width="72" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="338" y="309" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">POST · JSON</text>
+
+        <rect x="158" y="406" width="44" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="180" y="415" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TUILES</text>
+
+        <rect x="544" y="402" width="32" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="560" y="411" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">SQLX</text>
+
+        <rect x="838" y="132" width="52" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="864" y="141" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DISTANCE</text>
+
+        <rect x="770" y="300" width="76" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="808" y="309" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HORAIRES BUS</text>
+
+        <rect x="864" y="476" width="48" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="888" y="485" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ALERTES</text>
+
+        <!-- ============ NODES ============ -->
+        <!-- N1 App Expo (project component) -->
+        <rect x="40" y="280" width="220" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="280" width="220" height="80" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="48" y="288" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="62" y="297" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">APP</text>
+        <text x="150" y="316" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">App Expo</text>
+        <text x="150" y="333" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">React · TypeScript · expo-router</text>
+        <text x="150" y="346" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">iOS · Android · Web</text>
+
+        <!-- N2 Fonds de carte (external, existing) -->
+        <rect x="40" y="464" width="220" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="464" width="220" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="48" y="472" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="62" y="481" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="150" y="500" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Fonds de carte</text>
+        <text x="150" y="516" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Leaflet/OSM · react-native-maps</text>
+
+        <!-- N3 API Rust (focal) -->
+        <rect x="416" y="280" width="240" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="416" y="280" width="240" height="80" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="424" y="288" width="28" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="438" y="297" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">API</text>
+        <text x="536" y="316" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API Rust · Poem</text>
+        <text x="536" y="333" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">8 routes JSON · :8000</text>
+        <text x="536" y="346" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">sessions par jeton · argon2</text>
+
+        <!-- N4 PostgreSQL (store) -->
+        <rect x="416" y="456" width="240" height="80" rx="6" fill="#f5f5f5"/>
+        <rect x="416" y="456" width="240" height="80" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="424" y="464" width="28" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="438" y="473" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">BDD</text>
+        <text x="536" y="492" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">PostgreSQL 16</text>
+        <text x="536" y="509" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">extension earthdistance</text>
+        <text x="536" y="522" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">users · ride · ride_stop · sessions</text>
+
+        <!-- N5 Recommandations IA (planned) -->
+        <rect x="416" y="120" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="416" y="120" width="240" height="64" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="424" y="128" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="438" y="137" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">IA</text>
+        <text x="536" y="156" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Recommandations IA</text>
+        <text x="536" y="172" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">habitudes + .ics · sprint 4</text>
+
+        <!-- N6 API distance / itinéraire (planned external) -->
+        <rect x="960" y="120" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="960" y="120" width="240" height="64" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="968" y="128" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="982" y="137" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="1080" y="156" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API distance / itinéraire</text>
+        <text x="1080" y="172" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">km certifiés → points · sprint 3</text>
+
+        <!-- N7 API bus temps réel (planned external) -->
+        <rect x="960" y="288" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="960" y="288" width="240" height="64" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="968" y="296" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="982" y="305" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="1080" y="324" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API bus temps réel</text>
+        <text x="1080" y="340" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Txik-Txak · sprint 3</text>
+
+        <!-- N8 Notifications push (planned external) -->
+        <rect x="960" y="464" width="240" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="960" y="464" width="240" height="64" rx="6" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="968" y="472" width="28" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="982" y="481" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="1080" y="500" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Notifications push</text>
+        <text x="1080" y="516" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">APNs / FCM · non planifié</text>
+
+        <!-- ============ CALLOUTS (max 2, margins) ============ -->
+        <!-- C1: session token kept on device -->
+        <text x="40" y="212" fill="#2d3142" font-size="14" font-style="italic" font-family="'Instrument Serif', 'Noto Serif', serif">le jeton de session (60 jours)</text>
+        <text x="40" y="230" fill="#2d3142" font-size="14" font-style="italic" font-family="'Instrument Serif', 'Noto Serif', serif">reste stocké sur l’appareil</text>
+        <path d="M 112,240 Q 104,262 124,278" fill="none" stroke="rgba(45,49,66,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
+        <circle cx="124" cy="281" r="2" fill="#2d3142"/>
+
+        <!-- C2: radius search in SQL -->
+        <text x="536" y="604" fill="#2d3142" font-size="14" font-style="italic" font-family="'Instrument Serif', 'Noto Serif', serif" text-anchor="middle">le rayon de recherche se calcule directement en SQL</text>
+        <path d="M 536,588 Q 550,564 540,540" fill="none" stroke="rgba(45,49,66,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
+        <circle cx="540" cy="537" r="2" fill="#2d3142"/>
+
+        </g>
+
+        <!-- ============ LEGEND (bottom strip) ============ -->
+        <line x1="40" y1="652" x2="1240" y2="652" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="672" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LÉGENDE</text>
+
+        <rect x="40" y="684" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="60" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Nœud central</text>
+
+        <rect x="148" y="684" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="168" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Composant du projet</text>
+
+        <rect x="292" y="684" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="312" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Base de données</text>
+
+        <rect x="416" y="684" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="436" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Service tiers</text>
+
+        <rect x="528" y="684" width="14" height="10" rx="2" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.40)" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="548" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Prévu (sprint indiqué)</text>
+
+        <line x1="684" y1="689" x2="712" y2="689" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="720" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Appel HTTP</text>
+
+        <line x1="796" y1="689" x2="824" y2="689" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="832" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Appel interne</text>
+
+        <line x1="924" y1="689" x2="952" y2="689" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="960" y="692" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Flux prévu</text>
+      </svg>
+    </div>
+
+    <footer>
+      Sources : cahier des charges, document d’architecture et dépôt Montau-douce (backend Rust, frontend Expo) · état au 13 octobre 2026
+    </footer>
+  </div>
+</body>
+</html>
