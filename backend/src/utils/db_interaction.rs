@@ -240,6 +240,26 @@ pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
 
 }
 
+#[handler]
+pub async fn delete_user(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    sqlx::query(
+        "DELETE FROM users WHERE user_id = $1"
+    )
+    .bind(id_user)
+    .execute(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({ "result": "deleted" })))
+}
+
 
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
