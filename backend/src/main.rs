@@ -5,9 +5,11 @@ curl localhost:8000/ping
 curl -X POST localhost:8000/create_user -H 'Content-Type: application/json' -d '{"name":"Mattin","tel":"0601020304","passwd":"secret"}'
 curl -X POST localhost:8000/auth -H 'Content-Type: application/json' -d '{"tel":"0601020304","passwd":"secret"}'
 curl -X POST localhost:8000/fill_user_loc -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat":43.48865617841056, "lng":-1.482401353452829}'
-curl -X POST localhost:8000/get_possible_ride -H 'Content-Type: application/json' -d '{"token":"<token>"}'
 curl -X POST localhost:8000/fill_user_ics -H 'Content-Type: application/json' -d '{"token" : "<token>", "ics":"test_ics"}'
 curl -X POST localhost:8000/create_ride -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat_start":43.48865617841056, "lng_start":-1.482401353452829, "ride_start":"2024-06-01T12:00:00Z", "lat_end":43.48865617841056, "lng_end":-1.482401353452829, "ride_goal_time":"2024-06-01T12:30:00Z", "type":0}'
+curl -X POST localhost:8000/get_possible_ride -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat_start":43.48865617841056, "lng_start":-1.482401353452829, "lat_end":43.48865617841056, "lng_end":-1.482401353452829, "arrival_time":"2024-06-01T12:30:00Z"}'
+
+curl -X POST localhost:8000/delete_user -H 'Content-Type: application/json' -d '{"token" : "<token>"}'
 */
 
 
@@ -20,7 +22,7 @@ use sqlx::{postgres::PgPoolOptions};
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride};
+use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride, delete_user};
 
 
 #[tokio::main]
@@ -45,8 +47,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/ping", get(ping))
         .at("/get_possible_ride", post(get_possible_ride))
         .at("/fill_user_loc", post(fill_user_loc))
-        .at("fill_user_ics", fill_user_ics)
+        .at("/fill_user_ics", post(fill_user_ics))
         .at("/create_ride", post(create_ride))
+        .at("/delete_user", post(delete_user))
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");

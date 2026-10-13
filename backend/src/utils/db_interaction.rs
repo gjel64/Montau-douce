@@ -127,23 +127,44 @@ pub async fn fill_user_ics(Data(pool): Data<&PgPool>, Json(data): Json<Value>) -
 
 
 #[handler]
-pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(token_json): Json<Value>) -> Result<Json<Value>> {
+pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
 
-    let id_user = get_user_id_from_token(pool, token_json["token"]
-    .as_str()
-    .ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?)
-    .await?;
+    let user_id = get_user_id_from_token(pool, json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?).await?;
 
-    let (lat, lng): (f64, f64) = sqlx::query_as(
-        "SELECT lat, lng FROM users WHERE user_id = $1"
-    )
-    .bind(id_user)
-    .fetch_one(pool)
-    .await
-    .map_err(internal_err)?;
+    // get start loc from json if present, else get it from users location
+    let (lat_start, lng_start) = if json.get("lat_start").is_some() && json.get("lng_start").is_some() {
+        (
+            json["lat_start"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Invalid lat_start", StatusCode::BAD_REQUEST))?,
+            json["lng_start"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Invalid lng_start", StatusCode::BAD_REQUEST))?,
+        )
+    } else {
+        let (lat, lng): (Option<f64>, Option<f64>) = sqlx::query_as(
+            "SELECT lat, lng FROM users WHERE user_id = $1"
+        )
+        .bind(user_id)
+        .fetch_one(pool)
+        .await
+        .map_err(internal_err)?;
 
+        lat.zip(lng).ok_or_else(|| poem::Error::from_string(
+            "ERROR: No start position given and user location not set",
+            StatusCode::BAD_REQUEST,
+        ))?
+    };
 
-    get_users_near(Data(pool), lat, lng, DEFAULT_RADIUS, id_user).await
+    let radius = json["radius"].as_f64().unwrap_or(DEFAULT_RADIUS);
+    let lat_end = json["lat_end"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat_end", StatusCode::BAD_REQUEST))?;
+    let lng_end = json["lng_end"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng_end", StatusCode::BAD_REQUEST))?;
+
+    let mut arrival_time_str;
+    if json.get("arrival_time").is_none() {
+        arrival_time_str = "";
+    }
+    else {
+        arrival_time_str = json["arrival_time"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing arrival_time", StatusCode::BAD_REQUEST))?; 
+    }
+
+    get_ride_near(Data(pool), lat_start, lng_start, radius, lat_end, lng_end, arrival_time_str).await
 }
 
 
@@ -219,6 +240,27 @@ pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
 
 }
 
+#[handler]
+pub async fn delete_user(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    sqlx::query(
+        "DELETE FROM users WHERE user_id = $1"
+    )
+    .bind(id_user)
+    .execute(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({ "result": "deleted" })))
+}
+
+
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
         "SELECT user_id FROM sessions WHERE token_hash = sha256($1) AND expires_at > now()"
@@ -260,24 +302,35 @@ async fn create_session(pool: &PgPool, user_id: i32) -> Result<Json<Value>> {
 }
 
 
-async fn get_users_near(Data(pool): Data<&PgPool>, lat: f64, lng: f64, radius: f64, exclude_id: i32) -> Result<Json<Value>> {
-    let users: Vec<(f64, f64)> = sqlx::query_as::<_, (f64, f64)>(
-        "SELECT lat, lng
-         FROM users
-         WHERE user_id <> $4
-           AND earth_distance(ll_to_earth(lat, lng), ll_to_earth($1, $2)) < $3"
-    )
-    .bind(lat)
-    .bind(lng)
+async fn get_ride_near(Data(pool): Data<&PgPool>, lat_start: f64, lng_start: f64, radius: f64, lat_end: f64, lng_end: f64, arrival_time_str: &str) -> Result<Json<Value>> {
+    /* For now it just applyes circular search on start and end positions */
+    let arrival_time: Option<DateTime<Utc>> = if arrival_time_str.trim().is_empty() {
+        None
+    } else {
+        Some(arrival_time_str.parse().map_err(|_| {
+            poem::Error::from_string("ERROR: Invalid format for arrival_time", StatusCode::BAD_REQUEST)
+        })?)
+    };
+
+    let rides: Vec<(f64, f64, i32, f64, f64)> = sqlx::query_as::<_, (f64, f64, i32, f64, f64)>(
+    "SELECT lat_start, lng_start, ride_id, lat_end, lng_end
+        FROM ride
+        WHERE ($6::timestamptz IS NULL OR ride_goal_time <= $6)
+        AND earth_distance(ll_to_earth(lat_start, lng_start), ll_to_earth($1, $2)) < $3
+        AND earth_distance(ll_to_earth(lat_end, lng_end), ll_to_earth($4, $5)) < $3")
+    .bind(lat_start)
+    .bind(lng_start)
     .bind(radius)
-    .bind(exclude_id)
+    .bind(lat_end)
+    .bind(lng_end)
+    .bind(arrival_time)
     .fetch_all(pool)
     .await
     .map_err(internal_err)?;
 
-    let result: Vec<Value> = users.into_iter()
-        .map(|(lat, lng)| json!({ "lat": lat, "lng": lng }))
+    let result: Vec<Value> = rides.into_iter()
+        .map(|(lat_start, lng_start, id, lat_end, lng_end)| json!({ "lat_start": lat_start, "lng_start": lng_start, "ride_id": id, "lat_end": lat_end, "lng_end": lng_end }))
         .collect();
 
-    Ok(Json(json!({ "users_pos": result })))
+    Ok(Json(json!({ "rides": result })))
 }
