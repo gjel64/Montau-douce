@@ -173,6 +173,52 @@ pub async fn auth(Data(pool): Data<&PgPool>, Json(auth_json): Json<Value>) -> Re
 }
 
 
+#[handler]
+pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_start_str = json["ride_start"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_start", StatusCode::BAD_REQUEST))?;
+    let ride_goal_time_str = json["ride_goal_time"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_goal_time", StatusCode::BAD_REQUEST))?;
+    let lat_start = json["lat_start"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat_start", StatusCode::BAD_REQUEST))?;
+    let lng_start = json["lng_start"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng_start", StatusCode::BAD_REQUEST))?;
+    let lat_end = json["lat_end"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lat_end", StatusCode::BAD_REQUEST))?;
+    let lng_end = json["lng_end"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng_end", StatusCode::BAD_REQUEST))?;
+    let ride_type = json["type"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing type", StatusCode::BAD_REQUEST))?;
+
+    if ride_type < 0 || ride_type > 3 {
+        return Err(poem::Error::from_string("ERROR: Invalid ride type", StatusCode::BAD_REQUEST));
+    }
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let ride_start: DateTime<Utc> = ride_start_str.parse()
+        .map_err(|_| poem::Error::from_string("ERROR: Invalid format for ride_start", StatusCode::BAD_REQUEST))?;
+    let ride_goal_time: DateTime<Utc> = ride_goal_time_str.parse()
+        .map_err(|_| poem::Error::from_string("ERROR: Invalid format for ride_goal_time", StatusCode::BAD_REQUEST))?;
+
+    let (ride_id,): (i32,) = sqlx::query_as(
+        "INSERT INTO ride (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING ride_id"
+    )
+    .bind(id_user)
+    .bind(ride_start)
+    .bind(ride_goal_time)
+    .bind(lat_start)
+    .bind(lng_start)
+    .bind(lat_end)
+    .bind(lng_end)
+    .bind(ride_type as i32)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({ "ride_id": ride_id })))
+
+}
+
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
         "SELECT user_id FROM sessions WHERE token_hash = sha256($1) AND expires_at > now()"

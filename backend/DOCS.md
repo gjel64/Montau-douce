@@ -5,10 +5,11 @@
 
 /create_user(name, tel, passwd) (POST) -> token, expires_at  : crée un nouvel utilisateur (409 si le tel existe déjà)
 /fill_user_loc(token, lat, lng) (POST) -> result             : fill user lat and lng from id
-/fill_user_ics(token, ics) (POST)                            : fill user ics from id TODO:
+/fill_user_ics(token, ics) (POST)                            : fill user ics from id 
 
 /auth(tel, passwd) (POST) -> token, expires_at               : verif mdp et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 
+/create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type)  : create ride
 /get_possible_ride(token) (POST) -> Json(user_pos : [lat, long])  : get lat lng of rides from token
 ```
 
