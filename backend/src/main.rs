@@ -19,6 +19,7 @@ use poem::{
     listener::TcpListener,
 };
 use sqlx::{postgres::PgPoolOptions};
+use poem::middleware::Cors;
 
 
 mod utils;
@@ -52,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/create_ride", post(create_ride))
         .at("/delete_user", post(delete_user))
         .at("/get_my_infos", post(get_my_infos))
+        .with(Cors::new())
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
     println!("SERVER: écoute sur 0.0.0.0:8000");
