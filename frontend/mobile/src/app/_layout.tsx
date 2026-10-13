@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { SessionProvider, useSession } from '../ctx';
-import { SplashScreenController } from '../splash';
+import { SessionProvider, useSession } from '../auth/SessionContext';
+import { SplashScreenController } from '../auth/SplashScreenController';
 
 function RootNavigation() {
   const { isLoading, session } = useSession();

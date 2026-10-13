@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { DEV_TOKEN, getRides, Ride } from '../lib/api';
+import { DEV_TOKEN, getRides, Ride } from '../../services/api';
 
 export default function Map() {
   const mapRef = useRef<MapView>(null);

@@ -8,7 +8,7 @@ import {
   useMap,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { DEV_TOKEN, getRides, Ride } from '../lib/api';
+import { DEV_TOKEN, getRides, Ride } from '../../services/api';
 
 // Fix de l'icône de marqueur par défaut de Leaflet
 const icon = L.icon({
