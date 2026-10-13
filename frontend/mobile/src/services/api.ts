@@ -41,6 +41,14 @@ export interface SessionResponse {
   expires_at: string;
 }
 
+export interface MyInfos {
+  user_name: string;
+  user_tel: string;
+  lat: number | null;
+  lng: number | null;
+  user_ics: string | null;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
@@ -60,6 +68,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export const loginUser = (body: LoginBody) =>
   post<SessionResponse>('/auth', body);
+
+export const getMyInfos = (token: string) =>
+  post<MyInfos>('/get_my_infos', { token });
 
 export const login = (tel: string, passwd: string) =>
   loginUser({ tel, passwd });
