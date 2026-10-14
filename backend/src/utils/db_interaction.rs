@@ -8,7 +8,7 @@ use poem::{
 use serde_json::{json, Value};
 use sqlx::{PgPool};
 
-use crate::utils::db_creation::{StopStatus};
+use crate::utils::db_creation::{StopStatus, RideType};
 
 
 
@@ -299,10 +299,38 @@ pub async fn create_stop(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
         .await
         .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
 
-    let (stop_id,): (i32,) = sqlx::query_as(
-        "INSERT INTO ride_stop (ride_id, user_id, stop_lat, stop_lng, stop_order, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING stop_id"
+    let (ride_type,): (i32,) = sqlx::query_as(
+        "SELECT type FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    if ride_type != RideType::Car as i32 {
+        return Err(poem::Error::from_string("ERROR: Stops can only be created for car rides", StatusCode::BAD_REQUEST));
+    }
+
+    // Insert the new stop and shift the existing stops if necessary
+    // It allow not to do many requests
+    let stop_id: Option<(i32,)> = sqlx::query_as(
+        "WITH bounds AS (
+            SELECT COALESCE(MAX(stop_order), 0) + 1 AS next_order
+            FROM ride_stop
+            WHERE ride_id = $1
+        ),
+        shift AS (
+            UPDATE ride_stop
+                SET stop_order = stop_order + 1
+            WHERE ride_id = $1
+                AND stop_order >= $5::int
+                AND $5::int BETWEEN 1 AND (SELECT next_order FROM bounds)
+        )
+        INSERT INTO ride_stop (ride_id, user_id, stop_lat, stop_lng, stop_order, status)
+        SELECT $1, $2, $3, $4, $5::int, $6
+        FROM bounds
+        WHERE $5::int BETWEEN 1 AND next_order
+        RETURNING stop_id"
     )
     .bind(ride_id as i32)
     .bind(id_user)
@@ -310,9 +338,16 @@ pub async fn create_stop(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
     .bind(stop_lng)
     .bind(stop_order as i32)
     .bind(StopStatus::OnDemand as i32)
-    .fetch_one(pool)
+    .fetch_optional(pool)
     .await
     .map_err(internal_err)?;
+
+    let (stop_id,) = stop_id.ok_or_else(|| {
+        poem::Error::from_string(
+            "ERROR: stop_order must be 1 or directly follow the existing stops",
+            StatusCode::BAD_REQUEST,
+        )
+    })?;
 
     Ok(Json(json!({ "stop_id": stop_id })))
 }
