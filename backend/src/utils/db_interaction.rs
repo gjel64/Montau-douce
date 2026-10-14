@@ -8,9 +8,12 @@ use poem::{
 use serde_json::{json, Value};
 use sqlx::{PgPool};
 
+use crate::utils::db_creation::{StopStatus};
+
+
 
 // Log l'erreur côté serveur, renvoie une 500 sans détails au client
-fn internal_err(e: impl std::fmt::Display) -> poem::Error {
+pub fn internal_err(e: impl std::fmt::Display) -> poem::Error {
     eprintln!("SERVER ERROR: {e}");
     StatusCode::INTERNAL_SERVER_ERROR.into()
 }
@@ -280,6 +283,38 @@ pub async fn get_my_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) ->
     let (user_name, user_tel, lat, lng, user_ics) = row.ok_or_else(|| poem::Error::from_string("ERROR: Cannot find user from id", StatusCode::UNAUTHORIZED))?;
 
     Ok(Json(json!({ "user_name": user_name, "user_tel": user_tel, "lat": lat, "lng": lng, "user_ics": user_ics })))
+}
+
+
+#[handler]
+pub async fn create_stop(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_id = json["ride_id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_id", StatusCode::BAD_REQUEST))?;
+    let stop_lat = json["stop_lat"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_lat", StatusCode::BAD_REQUEST))?;
+    let stop_lng = json["stop_lng"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_lng", StatusCode::BAD_REQUEST))?;
+    let stop_order = json["stop_order"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_order", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let (stop_id,): (i32,) = sqlx::query_as(
+        "INSERT INTO ride_stop (ride_id, user_id, stop_lat, stop_lng, stop_order, status)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING stop_id"
+    )
+    .bind(ride_id as i32)
+    .bind(id_user)
+    .bind(stop_lat)
+    .bind(stop_lng)
+    .bind(stop_order as i32)
+    .bind(StopStatus::OnDemand as i32)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({ "stop_id": stop_id })))
 }
 
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {

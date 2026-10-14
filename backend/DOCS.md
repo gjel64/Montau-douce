@@ -13,6 +13,8 @@
 
 /create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type) (POST) -> ride_id        : create ride
 /get_possible_ride(token, lat_end, lng_end, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[lat_end, lat_start, lng_start, lng_end, ride_id]     : find a ride
+
+/create_stop(token, ride_id, lat, lng, status) (POST) -> stop_id        : create stop
 ```
 
 ## INTERNE
