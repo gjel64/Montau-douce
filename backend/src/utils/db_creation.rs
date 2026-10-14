@@ -19,6 +19,9 @@ pub enum StopStatus {
     Canceled = 2,
 }
 
+
+
+
 pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
 
     sqlx::query(
@@ -93,18 +96,61 @@ pub async fn create_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     ).execute(pool).await?;
 
 
+    seed_fake_data(pool).await?;
+
+
+    Ok(())
+}
+
+
+async fn seed_fake_data(pool: &PgPool) -> Result<(), sqlx::Error> {
+    // Évite l'erreur UNIQUE aux redémarrages
+    if sqlx::query_scalar::<_, bool>("SELECT EXISTS (SELECT 1 FROM users)")
+        .fetch_one(pool)
+        .await?
+    {
+        return Ok(());
+    }
+ 
     let passwd = hash("mdp").unwrap();
-    // Fill with false values TODO: Delete it
     sqlx::query(
-        "INSERT INTO users (user_name, user_tel, user_passwd, lat, lng)
-         VALUES ('name1', '1234567890', $1, 43.4945144, -1.4736657),
-                ('name2', '0987654321', $1, 43.48865617841056, -1.482401353452829),
-                ('name3', '1112223333', $1, 43.48177175173004, -1.5097996424168958),
-                ('name4', '4445556666', $1, 43.48602875354883, -1.490129772560247)"
+        "INSERT INTO users (user_name, user_tel, user_passwd, lat, lng) VALUES
+            ('name1', '1234567890', $1, 43.4945144, -1.4736657),
+            ('name2', '0987654321', $1, 43.48865617841056, -1.482401353452829),
+            ('name3', '1112223333', $1, 43.48177175173004, -1.5097996424168958),
+            ('name4', '4445556666', $1, 43.48602875354883, -1.490129772560247)",
     )
     .bind(passwd)
     .execute(pool)
     .await?;
-
+ 
+    // Trajets : demain / après-demain (Bayonne -> Biarritz, Anglet -> gare de Bayonne)
+    sqlx::query(
+        "INSERT INTO ride (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type)
+         SELECT user_id, d + t1, d + t2, 43.4945144, -1.4736657, 43.4832, -1.5586, 0
+           FROM users, (SELECT date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris' + interval '1 day') x(d),
+                (VALUES (interval '7 hours 40 minutes', interval '8 hours 10 minutes')) v(t1, t2)
+          WHERE user_name = 'name1'
+         UNION ALL
+         SELECT user_id, d + t1, d + t2, 43.48177175173004, -1.5097996424168958, 43.4966, -1.4700, 1
+           FROM users, (SELECT date_trunc('day', now() AT TIME ZONE 'Europe/Paris') AT TIME ZONE 'Europe/Paris' + interval '2 days') x(d),
+                (VALUES (interval '17 hours 30 minutes', interval '17 hours 55 minutes')) v(t1, t2)
+          WHERE user_name = 'name3'",
+    )
+    .execute(pool)
+    .await?;
+ 
+    // Arrêts : un par statut sur le trajet 1, un en attente sur le trajet 2
+    sqlx::query(
+        "INSERT INTO ride_stop (ride_id, user_id, stop_lat, stop_lng, stop_order, status)
+         SELECT r.ride_id, u.user_id, u.lat, u.lng, s.ord, s.status
+           FROM (VALUES (1, 'name2', 1, 1), (1, 'name4', 2, 0), (1, 'name3', 3, 2),
+                        (2, 'name4', 1, 0)) s(rn, uname, ord, status)
+           JOIN (SELECT ride_id, row_number() OVER (ORDER BY ride_id) rn FROM ride) r ON r.rn = s.rn
+           JOIN users u ON u.user_name = s.uname",
+    )
+    .execute(pool)
+    .await?;
+ 
     Ok(())
 }
