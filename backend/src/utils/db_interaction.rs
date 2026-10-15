@@ -430,6 +430,41 @@ pub async fn get_ride_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) 
 }
 
 
+#[handler]
+pub async fn delete_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_id = json["ride_id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_id", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let row: Option<(i32,)> = sqlx::query_as(
+        "SELECT user_id FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let (ride_user_id,) = row.ok_or_else(|| poem::Error::from_string("ERROR: Cannot find ride from id", StatusCode::NOT_FOUND))?;
+
+    if ride_user_id != id_user {
+        return Err(poem::Error::from_string("ERROR: User is not the owner of the ride", StatusCode::FORBIDDEN));
+    }
+
+    sqlx::query(
+        "DELETE FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .execute(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(Json(json!({ "result": "deleted" })))
+}
+
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
         "SELECT user_id FROM sessions WHERE token_hash = sha256($1) AND expires_at > now()"

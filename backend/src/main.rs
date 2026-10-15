@@ -13,6 +13,7 @@ curl -X POST localhost:8000/create_stop -H 'Content-Type: application/json' -d '
 curl -X POST localhost:8000/get_ride_infos -H 'Content-Type: application/json' -d '{"token" : "<token>", "ride_id":1}'
 
 curl -X POST localhost:8000/delete_user -H 'Content-Type: application/json' -d '{"token" : "<token>"}'
+curl -X POST localhost:8000/delete_ride -H 'Content-Type: application/json' -d '{"token" : "<token>", "ride_id":1}'
 */
 
 
@@ -26,7 +27,7 @@ use poem::middleware::Cors;
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride, delete_user, get_my_infos, create_stop, get_ride_infos};
+use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride, delete_user, get_my_infos, create_stop, get_ride_infos, delete_ride};
 
 
 #[tokio::main]
@@ -57,6 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/get_my_infos", post(get_my_infos))
         .at("/create_stop", post(create_stop))
         .at("/get_ride_infos", post(get_ride_infos))
+        .at("/delete_ride", post(delete_ride))
         .with(Cors::new())
         .data(pool); // rend le pool accessible via Data<&PgPool>
 
