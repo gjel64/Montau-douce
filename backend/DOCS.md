@@ -12,7 +12,7 @@
 /auth(tel, passwd) (POST) -> token, expires_at               : verif mdp et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 
 /create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type) (POST) -> ride_id        : create ride
-/get_possible_ride(token, lat_end, lng_end, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[lat_end, lat_start, lng_start, lng_end, ride_id]     : find a ride
+/get_possible_ride(token, lat_end?, lng_end?, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[ride_id, user_name, lat_start, lng_start, lat_end, lng_end] : find rides near a destination, or list all rides when no destination is supplied
 ```
 
 ## INTERNE

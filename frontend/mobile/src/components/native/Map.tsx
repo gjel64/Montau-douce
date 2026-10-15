@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { DEV_TOKEN, getRides, Ride } from '../../services/api';
+import { useSession } from '../../auth/SessionContext';
+import { getPossibleRides, Ride } from '../../services/api';
 
 export default function Map() {
   const mapRef = useRef<MapView>(null);
   const [rides, setRides] = useState<Ride[]>([]);
+  const { session } = useSession();
 
   // Position de l'utilisateur
   useEffect(() => {
@@ -36,10 +38,19 @@ export default function Map() {
 
   // Trajets depuis l'API
   useEffect(() => {
-    getRides(DEV_TOKEN)
-      .then(setRides)
-      .catch((e) => console.warn('getRides a échoué :', e));
-  }, []);
+    if (!session?.token) return;
+
+    let isCurrent = true;
+    getPossibleRides(session.token)
+      .then((loadedRides) => {
+        if (isCurrent) setRides(loadedRides);
+      })
+      .catch((e) => console.warn('getPossibleRides a échoué :', e));
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [session?.token]);
 
   return (
     <View style={styles.container}>

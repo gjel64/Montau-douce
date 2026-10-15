@@ -3,6 +3,8 @@ export const API_URL =
 
 export const DEV_TOKEN = 'auth_token';
 
+
+// formes des données échanger avec le server 
 export interface Stop {
   ride_id: number;
   stop_order: number;
@@ -48,6 +50,9 @@ export interface MyInfos {
   lng: number | null;
   user_ics: string | null;
 }
+
+
+
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -96,34 +101,30 @@ export function createUser(
 
 export async function getPossibleRides(
   token: string = DEV_TOKEN
-): Promise<UserPos[]> {
+): Promise<Ride[]> {
   const data = await post<{
-    users_pos?: Array<{
-      lat: number | string;
-      lng?: number | string;
-      tel?: number | string;
+    rides?: Array<{
+      ride_id: number;
+      user_name?: string;
+      lat_start: number;
+      lng_start: number;
+      lat_end: number;
+      lng_end: number;
     }>;
   }>('/get_possible_ride', { token });
 
-  return (data.users_pos ?? []).map((item) => ({
-    lat: Number(item.lat),
-    lng: Number(item.lng ?? item.tel),
-  }));
-}
-
-export async function getRides(token: string = DEV_TOKEN): Promise<Ride[]> {
-  const positions = await getPossibleRides(token);
-
-  return positions.map((position, index) => ({
-    ride_id: index + 1,
-    user_name: `Utilisateur #${index + 1}`,
-    lat_start: position.lat,
-    lng_start: position.lng,
-    lat_end: position.lat,
-    lng_end: position.lng,
+  return (data.rides ?? []).map((ride) => ({
+    ride_id: ride.ride_id,
+    user_name: ride.user_name ?? `Trajet #${ride.ride_id}`,
+    lat_start: Number(ride.lat_start),
+    lng_start: Number(ride.lng_start),
+    lat_end: Number(ride.lat_end),
+    lng_end: Number(ride.lng_end),
     stops: [],
   }));
 }
+
+export const getRides = getPossibleRides;
 
 export async function updateUserLocation(
   token: string,
