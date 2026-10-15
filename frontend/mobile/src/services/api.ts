@@ -124,4 +124,35 @@ export async function updateUserLocation(
     lat,
     lng,
   });
+
+}
+
+export interface RideInfosStop {
+  stop_id: number;
+  stop_lat: number;
+  stop_lng: number;
+  status: string;
+  stop_order: number;
+  user_id: number;
+}
+
+export interface RideInfos {
+  ride_id: number;
+  ride_start: string;
+  ride_goal_time: string;
+  lat_start: number;
+  lng_start: number;
+  lat_end: number;
+  lng_end: number;
+  type: string;
+  stops: RideInfosStop[];
+}
+
+export async function getRideInfos(token: string, ride_id: number): Promise<RideInfos> {
+  const data = await post<{ ride_infos: RideInfos }>('/get_ride_infos', {
+    token,
+    ride_id,
+  });
+
+  return data.ride_infos;
 }
