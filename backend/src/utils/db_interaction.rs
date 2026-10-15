@@ -134,6 +134,26 @@ pub async fn get_possible_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value
 
     let user_id = get_user_id_from_token(pool, json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?).await?;
 
+    if json.get("lat_end").is_none() && json.get("lng_end").is_none() {
+        let rides: Vec<(i32, String, f64, f64, f64, f64)> = sqlx::query_as(
+            "SELECT ride.ride_id, users.user_name, ride.lat_start, ride.lng_start, ride.lat_end, ride.lng_end
+             FROM ride
+             JOIN users ON users.user_id = ride.user_id
+             ORDER BY ride.ride_id"
+        )
+        .fetch_all(pool)
+        .await
+        .map_err(internal_err)?;
+
+        let result: Vec<Value> = rides.into_iter()
+            .map(|(ride_id, user_name, lat_start, lng_start, lat_end, lng_end)| {
+                json!({ "ride_id": ride_id, "user_name": user_name, "lat_start": lat_start, "lng_start": lng_start, "lat_end": lat_end, "lng_end": lng_end })
+            })
+            .collect();
+
+        return Ok(Json(json!({ "rides": result })));
+    }
+
     // get start loc from json if present, else get it from users location
     let (lat_start, lng_start) = if json.get("lat_start").is_some() && json.get("lng_start").is_some() {
         (
