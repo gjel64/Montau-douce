@@ -13,6 +13,7 @@
 
 /create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type) (POST) -> ride_id        : create ride
 /get_possible_ride(token, lat_end, lng_end, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[lat_end, lat_start, lng_start, lng_end, ride_id]     : find a ride
+/get_ride_infos(token, ride_id) (POST) -> ride_infos                    : get ride infos
 
 /create_stop(token, ride_id, lat, lng, status) (POST) -> stop_id        : create stop
 ```
@@ -26,4 +27,32 @@ get_ride_near(lat_start, lng_start, radius, lat_end, lng_end, arrival_time?) -> 
 
 hash(passwd) -> hash  
 internal_err(e) -> 500
+```
+
+
+
+
+## Notes
+```json
+ride_infos = {
+    "ride_id": ,
+    "ride_start": ,
+    "ride_goal_time": ,
+    "lat_start": ,
+    "lng_start": ,
+    "lat_end": ,
+    "lng_end": ,
+    "type": ,
+    "stops": [
+        {
+            "stop_id": ,
+            "stop_lat": ,
+            "stop_lng": ,
+            "status": ,
+            "stop_order": 
+        },
+        ...
+    ]
+}
+
 ```
