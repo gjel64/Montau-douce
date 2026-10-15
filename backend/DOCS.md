@@ -49,7 +49,8 @@ ride_infos = {
             "stop_lat": ,
             "stop_lng": ,
             "status": ,
-            "stop_order": 
+            "stop_order": ,
+            "user_id": ,
         },
         ...
     ]
