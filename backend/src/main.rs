@@ -9,6 +9,8 @@ curl -X POST localhost:8000/fill_user_ics -H 'Content-Type: application/json' -d
 curl -X POST localhost:8000/get_my_infos -H 'Content-Type: application/json' -d '{"token" : "<token>"}'
 curl -X POST localhost:8000/create_ride -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat_start":43.48865617841056, "lng_start":-1.482401353452829, "ride_start":"2024-06-01T12:00:00Z", "lat_end":43.48865617841056, "lng_end":-1.482401353452829, "ride_goal_time":"2024-06-01T12:30:00Z", "type":0}'
 curl -X POST localhost:8000/get_possible_ride -H 'Content-Type: application/json' -d '{"token" : "<token>", "lat_start":43.48865617841056, "lng_start":-1.482401353452829, "lat_end":43.48865617841056, "lng_end":-1.482401353452829, "arrival_time":"2024-06-01T12:30:00Z"}'
+curl -X POST localhost:8000/create_stop -H 'Content-Type: application/json' -d '{"token" : "<token>", "ride_id":1, "stop_lat":43.48865617841056, "stop_lng":-1.482401353452829, "status":0, "stop_order":4}'
+curl -X POST localhost:8000/get_ride_infos -H 'Content-Type: application/json' -d '{"token" : "<token>", "ride_id":1}'
 
 curl -X POST localhost:8000/delete_user -H 'Content-Type: application/json' -d '{"token" : "<token>"}'
 */
@@ -24,7 +26,7 @@ use poem::middleware::Cors;
 
 mod utils;
 use utils::db_creation::create_db;
-use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride, delete_user, get_my_infos};
+use utils::db_interaction::{auth, create_user, ping, get_possible_ride, fill_user_loc, fill_user_ics, create_ride, delete_user, get_my_infos, create_stop, get_ride_infos};
 
 
 #[tokio::main]
@@ -53,6 +55,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .at("/create_ride", post(create_ride))
         .at("/delete_user", post(delete_user))
         .at("/get_my_infos", post(get_my_infos))
+        .at("/create_stop", post(create_stop))
+        .at("/get_ride_infos", post(get_ride_infos))
         .with(Cors::new())
         .data(pool); // rend le pool accessible via Data<&PgPool>
 

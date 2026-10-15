@@ -8,9 +8,12 @@ use poem::{
 use serde_json::{json, Value};
 use sqlx::{PgPool};
 
+use crate::utils::db_creation::{StopStatus, RideType};
+
+
 
 // Log l'erreur côté serveur, renvoie une 500 sans détails au client
-fn internal_err(e: impl std::fmt::Display) -> poem::Error {
+pub fn internal_err(e: impl std::fmt::Display) -> poem::Error {
     eprintln!("SERVER ERROR: {e}");
     StatusCode::INTERNAL_SERVER_ERROR.into()
 }
@@ -301,6 +304,131 @@ pub async fn get_my_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) ->
 
     Ok(Json(json!({ "user_name": user_name, "user_tel": user_tel, "lat": lat, "lng": lng, "user_ics": user_ics })))
 }
+
+
+#[handler]
+pub async fn create_stop(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_id = json["ride_id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_id", StatusCode::BAD_REQUEST))?;
+    let stop_lat = json["stop_lat"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_lat", StatusCode::BAD_REQUEST))?;
+    let stop_lng = json["stop_lng"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_lng", StatusCode::BAD_REQUEST))?;
+    let stop_order = json["stop_order"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing stop_order", StatusCode::BAD_REQUEST))?;
+
+    let id_user = get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let (ride_type,): (i32,) = sqlx::query_as(
+        "SELECT type FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    if ride_type != RideType::Car as i32 {
+        return Err(poem::Error::from_string("ERROR: Stops can only be created for car rides", StatusCode::BAD_REQUEST));
+    }
+
+    // Insert the new stop and shift the existing stops if necessary
+    // It allow not to do many requests
+    let stop_id: Option<(i32,)> = sqlx::query_as(
+        "WITH bounds AS (
+            SELECT COALESCE(MAX(stop_order), 0) + 1 AS next_order
+            FROM ride_stop
+            WHERE ride_id = $1
+        ),
+        shift AS (
+            UPDATE ride_stop
+                SET stop_order = stop_order + 1
+            WHERE ride_id = $1
+                AND stop_order >= $5::int
+                AND $5::int BETWEEN 1 AND (SELECT next_order FROM bounds)
+        )
+        INSERT INTO ride_stop (ride_id, user_id, stop_lat, stop_lng, stop_order, status)
+        SELECT $1, $2, $3, $4, $5::int, $6
+        FROM bounds
+        WHERE $5::int BETWEEN 1 AND next_order
+        RETURNING stop_id"
+    )
+    .bind(ride_id as i32)
+    .bind(id_user)
+    .bind(stop_lat)
+    .bind(stop_lng)
+    .bind(stop_order as i32)
+    .bind(StopStatus::OnDemand as i32)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let (stop_id,) = stop_id.ok_or_else(|| {
+        poem::Error::from_string(
+            "ERROR: stop_order must be 1 or directly follow the existing stops",
+            StatusCode::BAD_REQUEST,
+        )
+    })?;
+
+    Ok(Json(json!({ "stop_id": stop_id })))
+}
+
+
+#[handler]
+pub async fn get_ride_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_id = json["ride_id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_id", StatusCode::BAD_REQUEST))?;
+
+    get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let row: Option<(i32, DateTime<Utc>, DateTime<Utc>, f64, f64, f64, f64, i32)> = sqlx::query_as(
+        "SELECT user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, ride_type) = row.ok_or_else(|| poem::Error::from_string("ERROR: Cannot find ride from id", StatusCode::NOT_FOUND))?;
+
+    let stops: Vec<(i32, i32, f64, f64, i32, i32)> = sqlx::query_as(
+        "SELECT stop_id, user_id, stop_lat, stop_lng, stop_order, status
+         FROM ride_stop
+         WHERE ride_id = $1
+         ORDER BY stop_order"
+    )
+    .bind(ride_id as i32)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let stops_json: Vec<Value> = stops
+        .into_iter()
+        .map(|(stop_id, stop_user_id, stop_lat, stop_lng, stop_order, status)| json!({
+            "stop_id": stop_id,
+            "user_id": stop_user_id,
+            "stop_lat": stop_lat,
+            "stop_lng": stop_lng,
+            "stop_order": stop_order,
+            "status": status
+        }))
+        .collect();
+
+    Ok(Json(json!({
+        "user_id": user_id,
+        "ride_start": ride_start.to_rfc3339(),
+        "ride_goal_time": ride_goal_time.to_rfc3339(),
+        "lat_start": lat_start,
+        "lng_start": lng_start,
+        "lat_end": lat_end,
+        "lng_end": lng_end,
+        "type": ride_type,
+        "stops": stops_json
+    })))
+}
+
 
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
