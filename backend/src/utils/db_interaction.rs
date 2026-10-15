@@ -352,6 +352,64 @@ pub async fn create_stop(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
     Ok(Json(json!({ "stop_id": stop_id })))
 }
 
+
+#[handler]
+pub async fn get_ride_infos(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> Result<Json<Value>> {
+
+    let token = json["token"].as_str().ok_or_else(|| poem::Error::from_string("ERROR: Missing token", StatusCode::BAD_REQUEST))?;
+    let ride_id = json["ride_id"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing ride_id", StatusCode::BAD_REQUEST))?;
+
+    get_user_id_from_token(pool, token)
+        .await
+        .map_err(|_| poem::Error::from_string("ERROR: Cannot find user from token", StatusCode::UNAUTHORIZED))?;
+
+    let row: Option<(i32, DateTime<Utc>, DateTime<Utc>, f64, f64, f64, f64, i32)> = sqlx::query_as(
+        "SELECT user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type FROM ride WHERE ride_id = $1"
+    )
+    .bind(ride_id as i32)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, ride_type) = row.ok_or_else(|| poem::Error::from_string("ERROR: Cannot find ride from id", StatusCode::NOT_FOUND))?;
+
+    let stops: Vec<(i32, i32, f64, f64, i32, i32)> = sqlx::query_as(
+        "SELECT stop_id, user_id, stop_lat, stop_lng, stop_order, status
+         FROM ride_stop
+         WHERE ride_id = $1
+         ORDER BY stop_order"
+    )
+    .bind(ride_id as i32)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_err)?;
+
+    let stops_json: Vec<Value> = stops
+        .into_iter()
+        .map(|(stop_id, stop_user_id, stop_lat, stop_lng, stop_order, status)| json!({
+            "stop_id": stop_id,
+            "user_id": stop_user_id,
+            "stop_lat": stop_lat,
+            "stop_lng": stop_lng,
+            "stop_order": stop_order,
+            "status": status
+        }))
+        .collect();
+
+    Ok(Json(json!({
+        "user_id": user_id,
+        "ride_start": ride_start.to_rfc3339(),
+        "ride_goal_time": ride_goal_time.to_rfc3339(),
+        "lat_start": lat_start,
+        "lng_start": lng_start,
+        "lat_end": lat_end,
+        "lng_end": lng_end,
+        "type": ride_type,
+        "stops": stops_json
+    })))
+}
+
+
 async fn get_user_id_from_token(pool: &PgPool, token: &str) -> Result<i32> {
     let row: Option<(i32,)> = sqlx::query_as(
         "SELECT user_id FROM sessions WHERE token_hash = sha256($1) AND expires_at > now()"
