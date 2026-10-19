@@ -1,3 +1,8 @@
+// SESSION : permet de savoir si l'utilisateur est connecté, depuis n'importe quel écran
+// Une session = le token donné par le serveur + sa date d'expiration
+// Elle est sauvegardée sur tel, donc on reste connecté après avoir fermé l'app
+
+
 import { createContext, use, type PropsWithChildren } from 'react';
 import { useStorageState } from '../hooks/useStorageState';
 

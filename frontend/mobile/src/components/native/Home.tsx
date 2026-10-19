@@ -6,7 +6,7 @@ import { getMyInfos, type MyInfos } from '../../services/api';
 
 export default function Home() {
 	const router = useRouter();
-	const { session } = useSession();
+	const { session, signOut } = useSession();
 	const [infos, setInfos] = useState<MyInfos | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +45,7 @@ export default function Home() {
 				<Text>Chargement du profil...</Text>
 			)}
 			<Button title="Voir la carte" onPress={() => router.push('/map')} />
+			<Button title="Se déconnecter" onPress={signOut} />
 		</View>
 	);
 }

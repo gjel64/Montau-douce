@@ -1,3 +1,8 @@
+// STOCKAGE : comme useState, mais la valeur est sauvegardée sur l'appareil.
+// Mobile = SecureStore (chiffré) | Web = localStorage.
+// useStorageState('clé') -> [[isLoading, valeur], setValue]
+// Utilisé par SessionContext pour garder la session après fermeture de l'appli.
+
 import { useCallback, useEffect, useReducer } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -38,6 +43,7 @@ export async function setStorageItemAsync(
   }
 }
 
+//Le hook
 export function useStorageState(key: string): StorageState<string> {
   const [[isLoading, value], setState] = useAsyncState<string>();
 
