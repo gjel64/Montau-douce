@@ -4,10 +4,9 @@
 /ping (GET) -> version                                       : ping db, renvoie la version PostgreSQL  
 
 /create_user(name, tel, passwd) (POST) -> token, expires_at  : crée un nouvel utilisateur (409 si le tel existe déjà)
-/fill_user_loc(token, lat, lng) (POST) -> result             : fill user lat and lng
-/fill_user_ics(token, ics) (POST)                            : fill user ics
 /delete_user(token) (POST)  -> result                        : delete user
 /get_my_infos(token) (POST) -> name, tel, lat, lng, ics      : get user infos
+/set_my_infos(token, name?, tel?, lat?, lng?, ics?) (POST) -> result : set user infos
 
 /auth(tel, passwd) (POST) -> token, expires_at               : verif mdp et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 
