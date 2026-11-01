@@ -162,6 +162,19 @@ export interface RideInfos {
   stops: RideInfosStop[];
 }
 
+export interface CreateRideBody {
+  ride_start: string;
+  ride_goal_time: string;
+  lat_start: number;
+  lng_start: number;
+  lat_end: number;
+  lng_end: number;
+  type: string;
+}
+
+export const createRide = (token: string, body: CreateRideBody) =>
+  post<{ ride_id: number }>('/create_ride', { token, ...body });
+
 export async function getRideInfos(token: string, ride_id: number): Promise<RideInfos> {
   const data = await post<{ ride_infos: RideInfos }>('/get_ride_infos', {
     token,
