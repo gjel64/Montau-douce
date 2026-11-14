@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, Button, StyleSheet, TextInput, View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSession } from '../../auth/SessionContext';
-import { createRide } from '../../services/api'; 
+import { createRide, getRideDateTimes } from '../../services/api';
 
 export default function CreateRide() {
     const router = useRouter();
@@ -23,7 +23,7 @@ export default function CreateRide() {
             return;
         }
 
-        if (!type || !rideStart || !rideGoalTime || !latStart || !lngStart || !latEnd || !lngEnd) {
+        if (!rideStart || !rideGoalTime || !latStart || !lngStart || !latEnd || !lngEnd) {
             Alert.alert('Champs manquants', 'Merci de remplir toutes les informations du trajet.');
             return;
         }
@@ -39,10 +39,9 @@ export default function CreateRide() {
                 lat_end: Number(latEnd),
                 lng_end: Number(lngEnd),
             });
-            
+
             Alert.alert('Succès', 'Ton trajet a bien été publié !');
             router.push('/');
-            
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Erreur inconnue';
             Alert.alert('Impossible de publier le trajet', message);
@@ -73,7 +72,7 @@ export default function CreateRide() {
                 </View>
 
                 <Text style={styles.subtitle}>Horaires</Text>
-                <TextInput 
+                <TextInput
                     style={styles.input} 
                     placeholder="Heure de départ (ex: 18:00)" 
                     value={rideStart} 

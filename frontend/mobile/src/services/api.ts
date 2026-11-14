@@ -1,12 +1,6 @@
-// API : tous les appels au serveur
-
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-export const DEV_TOKEN = 'auth_token';
-
-
-// formes des données échanger avec le server 
 export interface Stop {
   ride_id: number;
   stop_order: number;
@@ -65,12 +59,17 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   if (!response.ok) {
     const details = await response.text().catch(() => '');
-    throw new Error(
-      `Erreur API (${response.status})${details ? ` : ${details}` : ''}`
-    );
+    throw new ApiError(response.status, `Erreur API (${response.status})${details ? ` : ${details}` : ''}`);
   }
 
   return response.json() as Promise<T>;
+}
+
+export class ApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
 export const loginUser = (body: LoginBody) =>
@@ -78,6 +77,14 @@ export const loginUser = (body: LoginBody) =>
 
 export const getMyInfos = (token: string) =>
   post<MyInfos>('/get_my_infos', { token });
+
+export type UpdateMyInfos = Partial<Pick<MyInfos, 'user_name' | 'user_tel' | 'lat' | 'lng' | 'user_ics'>>;
+
+export const updateMyInfos = (token: string, infos: UpdateMyInfos) =>
+  post<{ result: string }>('/set_my_infos', { token, ...infos });
+
+export const deleteMyAccount = (token: string) =>
+  post<{ result: string }>('/delete_user', { token });
 
 export const login = (tel: string, passwd: string) =>
   loginUser({ tel, passwd });
@@ -102,7 +109,7 @@ export function createUser(
 }
 
 export async function getPossibleRides(
-  token: string = DEV_TOKEN
+  token: string
 ): Promise<Ride[]> {
   const data = await post<{
     rides?: Array<{

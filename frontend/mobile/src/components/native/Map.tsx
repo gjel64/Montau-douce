@@ -10,7 +10,6 @@ export default function Map() {
   const [rides, setRides] = useState<Ride[]>([]);
   const { session } = useSession();
 
-  // Position de l'utilisateur
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();

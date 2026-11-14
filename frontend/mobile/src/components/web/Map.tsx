@@ -8,9 +8,9 @@ import {
   useMap,
 } from 'react-leaflet';
 import L from 'leaflet';
-import { DEV_TOKEN, getRides, Ride } from '../../services/api';
+import { useSession } from '../../auth/SessionContext';
+import { getRides, Ride } from '../../services/api';
 
-// Fix de l'icône de marqueur par défaut de Leaflet
 const icon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
@@ -20,7 +20,6 @@ const icon = L.icon({
 
 const DEFAULT_POSITION: [number, number] = [43.4929, -1.4748]; // Bayonne
 
-// Recentre la carte quand la position change
 function Recenter({ position }: { position: [number, number] }) {
   const map = useMap();
   useEffect(() => {
@@ -30,10 +29,10 @@ function Recenter({ position }: { position: [number, number] }) {
 }
 
 export default function Map() {
+  const { session } = useSession();
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [rides, setRides] = useState<Ride[]>([]);
 
-  // Géolocalisation du navigateur
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
       (pos) => setPosition([pos.coords.latitude, pos.coords.longitude]),
@@ -41,12 +40,13 @@ export default function Map() {
     );
   }, []);
 
-  // Trajets depuis l'API
   useEffect(() => {
-    getRides(DEV_TOKEN)
+    if (!session?.token) return;
+
+    getRides(session.token)
       .then(setRides)
       .catch((e) => console.warn('getRides a échoué :', e));
-  }, []);
+  }, [session?.token]);
 
   return (
     <>
