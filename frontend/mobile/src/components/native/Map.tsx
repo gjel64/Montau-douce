@@ -35,7 +35,6 @@ export default function Map() {
     })();
   }, []);
 
-  // Trajets depuis l'API
   useEffect(() => {
     if (!session?.token) return;
 
