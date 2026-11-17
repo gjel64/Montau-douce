@@ -10,8 +10,8 @@
 
 /auth(tel, passwd) (POST) -> token, expires_at               : verif mdp et crée un nouveau token, l'ancien devient invalide (401 si invalide)
 
-/create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type) (POST) -> ride_id        : create ride
-/get_possible_ride(token, lat_end, lng_end, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[lat_end, lat_start, lng_start, lng_end, ride_id]    : find a ride
+/create_ride(token, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type, n_seats) (POST) -> ride_id        : create ride
+/get_possible_ride(token, lat_end, lng_end, arrival_time?, radius?, lat_start?, lng_start?) (POST) -> rides[lat_end, lat_start, lng_start, lng_end, ride_id, remaining_seats]    : find a ride
 /get_ride_infos(token, ride_id) (POST) -> ride_infos           : get ride infos
 /delete_ride(token, ride_id) (POST) -> result                  : delete ride
 
@@ -43,6 +43,7 @@ ride_infos = {
     "lat_end": ,
     "lng_end": ,
     "type": ,
+    "remaining_seats":,
     "stops": [
         {
             "stop_id": ,

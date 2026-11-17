@@ -173,8 +173,14 @@ pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
     let lng_end = json["lng_end"].as_f64().ok_or_else(|| poem::Error::from_string("ERROR: Missing lng_end", StatusCode::BAD_REQUEST))?;
     let ride_type = json["type"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing type", StatusCode::BAD_REQUEST))?;
 
+    let n_seats = json["n_seats"].as_i64().ok_or_else(|| poem::Error::from_string("ERROR: Missing n_seats", StatusCode::BAD_REQUEST))?;
+
     if ride_type < 0 || ride_type > 3 {
         return Err(poem::Error::from_string("ERROR: Invalid ride type", StatusCode::BAD_REQUEST));
+    }
+
+    if n_seats < 1 || n_seats > i32::MAX as i64 {
+        return Err(poem::Error::from_string("ERROR: Invalid n_seats", StatusCode::BAD_REQUEST));
     }
 
     let id_user = get_user_id_from_token(pool, token)
@@ -187,8 +193,8 @@ pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
         .map_err(|_| poem::Error::from_string("ERROR: Invalid format for ride_goal_time", StatusCode::BAD_REQUEST))?;
 
     let (ride_id,): (i32,) = sqlx::query_as(
-        "INSERT INTO ride (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        "INSERT INTO ride (user_id, ride_start, ride_goal_time, lat_start, lng_start, lat_end, lng_end, type, n_seats)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING ride_id"
     )
     .bind(id_user)
@@ -199,6 +205,7 @@ pub async fn create_ride(Data(pool): Data<&PgPool>, Json(json): Json<Value>) -> 
     .bind(lat_end)
     .bind(lng_end)
     .bind(ride_type as i32)
+    .bind(n_seats as i32)
     .fetch_one(pool)
     .await
     .map_err(internal_err)?;
@@ -499,8 +506,8 @@ async fn get_ride_near(Data(pool): Data<&PgPool>, lat_start: f64, lng_start: f64
         })?)
     };
 
-    let rides: Vec<(f64, f64, i32, f64, f64)> = sqlx::query_as::<_, (f64, f64, i32, f64, f64)>(
-    "SELECT lat_start, lng_start, ride_id, lat_end, lng_end
+    let rides: Vec<(f64, f64, i32, f64, f64, i32)> = sqlx::query_as::<_, (f64, f64, i32, f64, f64, i32)>(
+    "SELECT lat_start, lng_start, ride_id, lat_end, lng_end, n_seats
         FROM ride
         WHERE ($6::timestamptz IS NULL OR ride_goal_time <= $6)
         AND earth_distance(ll_to_earth(lat_start, lng_start), ll_to_earth($1, $2)) < $3
@@ -515,9 +522,30 @@ async fn get_ride_near(Data(pool): Data<&PgPool>, lat_start: f64, lng_start: f64
     .await
     .map_err(internal_err)?;
 
-    let result: Vec<Value> = rides.into_iter()
-        .map(|(lat_start, lng_start, id, lat_end, lng_end)| json!({ "lat_start": lat_start, "lng_start": lng_start, "ride_id": id, "lat_end": lat_end, "lng_end": lng_end }))
-        .collect();
+    let mut found_rides = Vec::new();
+    for (lat_start, lng_start, ride_id, lat_end, lng_end, n_seats) in rides {
+        let remaining_seats = get_n_remaining_seats(pool, ride_id, n_seats).await?;
+        if remaining_seats > 0 {
+            found_rides.push(json!({ "lat_start": lat_start, "lng_start": lng_start, "ride_id": ride_id, "lat_end": lat_end, "lng_end": lng_end, "remaining_seats": remaining_seats }));
+        }
+    }
 
-    Ok(Json(json!({ "rides": result })))
+    Ok(Json(json!({ "rides": found_rides })))
 }
+
+
+
+async fn get_n_remaining_seats(pool: &PgPool, ride_id: i32, n_seats: i32) -> Result<i32> {
+
+    let (n_stops,): (i32,) = sqlx::query_as(
+        "SELECT COUNT(*)::INT FROM ride_stop WHERE ride_id = $1"
+    )
+    .bind(ride_id)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_err)?;
+
+    Ok(n_seats - n_stops)
+}
+
+
