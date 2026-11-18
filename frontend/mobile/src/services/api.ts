@@ -47,9 +47,6 @@ export interface MyInfos {
   user_ics: string | null;
 }
 
-
-
-
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
@@ -108,9 +105,21 @@ export function createUser(
   return post<SessionResponse>('/create_user', body);
 }
 
+export interface SearchRideParams {
+  lat_end: number;
+  lng_end: number;
+  arrival_time?: string;
+  radius?: number;
+  lat_start?: number;
+  lng_start?: number;
+}
+
 export async function getPossibleRides(
-  token: string
+  token: string,
+  params?: SearchRideParams
 ): Promise<Ride[]> {
+  const payload = params ? { token, ...params } : { token };
+
   const data = await post<{
     rides?: Array<{
       ride_id: number;
@@ -120,7 +129,7 @@ export async function getPossibleRides(
       lat_end: number;
       lng_end: number;
     }>;
-  }>('/get_possible_ride', { token });
+  }>('/get_possible_ride', payload);
 
   return (data.rides ?? []).map((ride) => ({
     ride_id: ride.ride_id,
@@ -190,3 +199,14 @@ export async function getRideInfos(token: string, ride_id: number): Promise<Ride
 
   return data.ride_infos;
 }
+
+
+export interface CreateStopBody {
+  ride_id: number;
+  lat: number;
+  lng: number;
+  status: string;
+}
+
+export const createStop = (token: string, body: CreateStopBody) =>
+  post<{ stop_id: number }>('/create_stop', { token, ...body });

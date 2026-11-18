@@ -5,3 +5,4 @@ export { default as Map } from '../web/Map';
 export { default as SignUp } from '../web/SignUp';
 export { default as SummaryRide } from '../web/SummaryRide';
 export { default as CreateRide } from '../native/CreateRide';
+export { default as SearchRide } from '../native/SearchRide';
