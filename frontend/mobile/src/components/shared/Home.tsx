@@ -55,6 +55,12 @@ export default function Home() {
           <Pressable accessibilityRole="button" onPress={() => router.push('/search-ride')} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
             <Text style={styles.primaryButtonText}>Rechercher un trajet</Text>
           </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/create-ride')} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>Publier un trajet</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/summary-ride')} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryButtonText}>Récapitulatif du trajet</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" onPress={() => router.push('/account')} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
             <Text style={styles.secondaryButtonText}>Mon compte</Text>
           </Pressable>
