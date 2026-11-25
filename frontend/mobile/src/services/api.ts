@@ -185,7 +185,7 @@ export interface CreateRideBody {
   lng_start: number;
   lat_end: number;
   lng_end: number;
-  type: string;
+  type: number;
   n_seats: number;
 }
 

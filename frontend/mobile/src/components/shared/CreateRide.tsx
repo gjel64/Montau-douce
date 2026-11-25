@@ -4,6 +4,13 @@ import { useRouter } from 'expo-router';
 import { useSession } from '../../auth/SessionContext';
 import { createRide } from '../../services/api';
 
+const TRANSPORT_TYPES = [
+    { id: 0, label: 'Voiture' },
+    { id: 1, label: 'Vélo' },
+    { id: 2, label: 'Bus' },
+    { id: 3, label: 'À pied' },
+];
+
 function showAlert(title: string, message: string) {
     if (Platform.OS === 'web') {
         window.alert(`${title}\n${message}`);
@@ -12,12 +19,37 @@ function showAlert(title: string, message: string) {
     }
 }
 
+function toUtcIsoString(input: string): string | null {
+    const trimmed = input.trim();
+
+    // Accepte "18:00" ou "18h00" et le convertit à la date du jour en UTC
+    const timeMatch = trimmed.match(/^(\d{1,2})[:hH](\d{2})$/);
+    if (timeMatch) {
+        const hours = Number(timeMatch[1]);
+        const minutes = Number(timeMatch[2]);
+        if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            const now = new Date();
+            now.setHours(hours, minutes, 0, 0);
+            return now.toISOString();
+        }
+        return null;
+    }
+
+    // Sinon vérifie si l'utilisateur a déjà tapé une date ISO valide
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+    }
+
+    return null;
+}
+
 export default function CreateRide() {
     const router = useRouter();
     const { session } = useSession();
 
-    const [type, setType] = useState('voiture');
-    const [nSeats, setNSeats] = useState('');
+    const [type, setType] = useState<number>(0);
+    const [nSeats, setNSeats] = useState('1');
     const [rideStart, setRideStart] = useState('');
     const [rideGoalTime, setRideGoalTime] = useState('');
     const [latStart, setLatStart] = useState('');
@@ -32,30 +64,38 @@ export default function CreateRide() {
             return;
         }
 
-        if (!type || !rideStart || !rideGoalTime || !latStart || !lngStart || !latEnd || !lngEnd) {
+        if (!rideStart || !rideGoalTime || !latStart || !lngStart || !latEnd || !lngEnd) {
             showAlert('Champs manquants', 'Merci de remplir toutes les informations du trajet.');
             return;
         }
 
-        if (type === 'voiture' && (!nSeats || Number(nSeats) <= 0)) {
-            showAlert('Champs manquants', 'Merci d\'indiquer un nombre de places valide pour la voiture.');
+        const parsedSeats = type === 0 ? Math.floor(Number(nSeats)) : 1;
+        if (Number.isNaN(parsedSeats) || parsedSeats < 1) {
+            showAlert('Nombre de places invalide', 'Merci d\'indiquer au moins 1 place.');
+            return;
+        }
+
+        const rideStartIso = toUtcIsoString(rideStart);
+        const rideGoalTimeIso = toUtcIsoString(rideGoalTime);
+        if (!rideStartIso || !rideGoalTimeIso) {
+            showAlert('Horaire invalide', 'Utilise le format HH:MM (ex: 18:00) ou une date ISO.');
             return;
         }
 
         setIsSubmitting(true);
         try {
-            await createRide(session.token, {
+            const response = await createRide(session.token, {
                 type,
-                n_seats: type === 'voiture' ? Number(nSeats) : 0,
-                ride_start: rideStart,
-                ride_goal_time: rideGoalTime,
+                n_seats: parsedSeats,
+                ride_start: rideStartIso,
+                ride_goal_time: rideGoalTimeIso,
                 lat_start: Number(latStart),
                 lng_start: Number(lngStart),
                 lat_end: Number(latEnd),
                 lng_end: Number(lngEnd),
             });
 
-            showAlert('Succès', 'Ton trajet a bien été publié !');
+            showAlert('Succès', `Ton trajet #${response.ride_id} a bien été publié !`);
             router.push('/');
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -81,20 +121,20 @@ export default function CreateRide() {
                 <Text style={styles.subtitle}>Moyen de transport</Text>
 
                 <View style={styles.typeContainer}>
-                    {['voiture', 'vélo', 'bus'].map((transport) => (
+                    {TRANSPORT_TYPES.map((transport) => (
                         <TouchableOpacity
-                            key={transport}
-                            style={[styles.typeButton, type === transport && styles.typeButtonActive]}
-                            onPress={() => setType(transport)}
+                            key={transport.id}
+                            style={[styles.typeButton, type === transport.id && styles.typeButtonActive]}
+                            onPress={() => setType(transport.id)}
                         >
-                            <Text style={[styles.typeText, type === transport && styles.typeTextActive]}>
-                                {transport.charAt(0).toUpperCase() + transport.slice(1)}
+                            <Text style={[styles.typeText, type === transport.id && styles.typeTextActive]}>
+                                {transport.label}
                             </Text>
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                {type === 'voiture' && (
+                {type === 0 && (
                     <TextInput
                         style={styles.input}
                         placeholder="Nombre de places disponibles (ex: 3)"
@@ -137,14 +177,14 @@ export default function CreateRide() {
                 <Text style={styles.subtitle}>Point d'arrivée</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Latitude arrivée"
+                    placeholder="Latitude arrivée (ex: 43.51)"
                     keyboardType="numeric"
                     value={latEnd}
                     onChangeText={setLatEnd}
                 />
                 <TextInput
                     style={styles.input}
-                    placeholder="Longitude arrivée"
+                    placeholder="Longitude arrivée (ex: -1.67)"
                     keyboardType="numeric"
                     value={lngEnd}
                     onChangeText={setLngEnd}
