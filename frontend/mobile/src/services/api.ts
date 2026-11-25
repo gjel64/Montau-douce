@@ -175,9 +175,9 @@ export interface RideInfos {
   lat_end: number;
   lng_end: number;
   type: string;
+  remaining_seats: number;
   stops: RideInfosStop[];
 }
-
 export interface CreateRideBody {
   ride_start: string;
   ride_goal_time: string;
@@ -186,6 +186,7 @@ export interface CreateRideBody {
   lat_end: number;
   lng_end: number;
   type: string;
+  n_seats: number;
 }
 
 export const createRide = (token: string, body: CreateRideBody) =>

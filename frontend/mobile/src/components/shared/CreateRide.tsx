@@ -17,6 +17,7 @@ export default function CreateRide() {
     const { session } = useSession();
 
     const [type, setType] = useState('voiture');
+    const [nSeats, setNSeats] = useState('');
     const [rideStart, setRideStart] = useState('');
     const [rideGoalTime, setRideGoalTime] = useState('');
     const [latStart, setLatStart] = useState('');
@@ -36,10 +37,16 @@ export default function CreateRide() {
             return;
         }
 
+        if (type === 'voiture' && (!nSeats || Number(nSeats) <= 0)) {
+            showAlert('Champs manquants', 'Merci d\'indiquer un nombre de places valide pour la voiture.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             await createRide(session.token, {
                 type,
+                n_seats: type === 'voiture' ? Number(nSeats) : 0,
                 ride_start: rideStart,
                 ride_goal_time: rideGoalTime,
                 lat_start: Number(latStart),
@@ -86,6 +93,16 @@ export default function CreateRide() {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {type === 'voiture' && (
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Nombre de places disponibles (ex: 3)"
+                        keyboardType="numeric"
+                        value={nSeats}
+                        onChangeText={setNSeats}
+                    />
+                )}
 
                 <Text style={styles.subtitle}>Horaires</Text>
                 <TextInput
