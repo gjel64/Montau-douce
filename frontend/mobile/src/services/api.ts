@@ -10,12 +10,12 @@ export interface Stop {
 
 export interface Ride {
   ride_id: number;
-  user_name: string;
+  user_name?: string;
   lat_start: number;
   lng_start: number;
   lat_end: number;
   lng_end: number;
-  stops: Stop[];
+  remaining_seats?: number;
 }
 
 export interface UserPos {
@@ -166,16 +166,17 @@ export interface RideInfosStop {
   user_id: number;
 }
 
-export interface RideInfos {
-  ride_id: number;
+interface RideInfos {
+  user_id: number;
+  ride_id?: number;
   ride_start: string;
   ride_goal_time: string;
   lat_start: number;
   lng_start: number;
   lat_end: number;
   lng_end: number;
-  type: string;
-  remaining_seats: number;
+  type: number;
+  remaining_seats?: number;
   stops: RideInfosStop[];
 }
 export interface CreateRideBody {
@@ -193,20 +194,18 @@ export const createRide = (token: string, body: CreateRideBody) =>
   post<{ ride_id: number }>('/create_ride', { token, ...body });
 
 export async function getRideInfos(token: string, ride_id: number): Promise<RideInfos> {
-  const data = await post<{ ride_infos: RideInfos }>('/get_ride_infos', {
+  const data = await post<RideInfos & { ride_infos?: RideInfos }>('/get_ride_infos', {
     token,
     ride_id,
   });
-
-  return data.ride_infos;
+  return data.ride_infos ?? data;
 }
-
 
 export interface CreateStopBody {
   ride_id: number;
-  lat: number;
-  lng: number;
-  status: string;
+  stop_lat: number;
+  stop_lng: number;
+  stop_order: number;
 }
 
 export const createStop = (token: string, body: CreateStopBody) =>

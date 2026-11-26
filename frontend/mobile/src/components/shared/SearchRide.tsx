@@ -31,8 +31,23 @@ const CAMPUS_MONTAURY = {
 
 const RADIUS_OPTIONS = [300, 500, 1000, 2000];
 
+const RIDE_TYPE_LABELS: Record<number, string> = {
+  0: 'VOITURE',
+  1: 'VÉLO',
+  2: 'BUS',
+  3: 'À PIED',
+};
+
 // Sur iOS, "numeric" n'a ni le "-" ni la virgule : on prend le clavier complet
 const COORD_KEYBOARD = Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric';
+
+function showAlert(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3;
@@ -58,6 +73,31 @@ function parseCoord(value: string, min: number, max: number): number | null {
   return n;
 }
 
+// Convertit "08:30" ou "08h30" (ou une date ISO) en date UTC ISO attendue par Rust
+function toUtcIsoString(input: string): string | null {
+  const trimmed = input.trim();
+  const timeMatch = trimmed.match(/^(\d{1,2})[:hH](\d{2})$/);
+  if (timeMatch) {
+    const hours = Number(timeMatch[1]);
+    const minutes = Number(timeMatch[2]);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      const now = new Date();
+      now.setHours(hours, minutes, 0, 0);
+      return now.toISOString();
+    }
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function formatTime(isoString: string): string {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return isoString;
+  return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function SearchRide() {
   const router = useRouter();
   const { session, signOut } = useSession();
@@ -71,6 +111,7 @@ export default function SearchRide() {
 
   const [isSearching, setIsSearching] = useState(false);
   const [joiningRideId, setJoiningRideId] = useState<number | null>(null);
+  const [requestedRideIds, setRequestedRideIds] = useState<number[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState<Array<{ ride: Ride; infos?: RideInfos }>>([]);
@@ -126,7 +167,6 @@ export default function SearchRide() {
   async function onSearch() {
     if (!session?.token) return;
 
-    // Destination : obligatoire et valide
     const latE = parseCoord(latEnd, -90, 90);
     const lngE = parseCoord(lngEnd, -180, 180);
     if (latE === null || lngE === null) {
@@ -134,13 +174,21 @@ export default function SearchRide() {
       return;
     }
 
-    // Départ : optionnel, mais s'il est rempli il doit être valide
-    // (undefined = champ vide, null = rempli mais invalide)
     const latS = latStart.trim() ? parseCoord(latStart, -90, 90) : undefined;
     const lngS = lngStart.trim() ? parseCoord(lngStart, -180, 180) : undefined;
     if (latS === null || lngS === null) {
       setError('Les coordonnées de départ sont invalides.');
       return;
+    }
+
+    let arrivalTimeIso: string | undefined;
+    if (arrivalTime.trim()) {
+      const converted = toUtcIsoString(arrivalTime);
+      if (!converted) {
+        setError('Heure d’arrivée invalide : utilise le format HH:MM (ex : 08:30).');
+        return;
+      }
+      arrivalTimeIso = converted;
     }
 
     setError('');
@@ -154,7 +202,7 @@ export default function SearchRide() {
         radius,
         ...(latS !== undefined ? { lat_start: latS } : {}),
         ...(lngS !== undefined ? { lng_start: lngS } : {}),
-        ...(arrivalTime.trim() ? { arrival_time: arrivalTime.trim() } : {}),
+        ...(arrivalTimeIso ? { arrival_time: arrivalTimeIso } : {}),
       });
 
       const detailedRides = await Promise.all(
@@ -169,9 +217,6 @@ export default function SearchRide() {
       );
 
       setResults(detailedRides);
-
-      //setResults(rides.map((ride) => ({ ride })));
-
     } catch (requestError: unknown) {
       if (requestError instanceof ApiError && requestError.status === 401) {
         signOut();
@@ -188,7 +233,7 @@ export default function SearchRide() {
     }
   }
 
-  async function handleJoinRide(rideId: number) {
+  async function handleJoinRide(rideId: number, existingStopsCount: number) {
     if (!session?.token) return;
 
     const lat = parseCoord(latStart, -90, 90);
@@ -202,16 +247,17 @@ export default function SearchRide() {
     setJoiningRideId(rideId);
 
     try {
-      await createStop(session.token, {
+      const { stop_id } = await createStop(session.token, {
         ride_id: rideId,
-        lat,
-        lng,
-        status: 'pending',
+        stop_lat: lat,
+        stop_lng: lng,
+        stop_order: existingStopsCount + 1,
       });
 
-      Alert.alert(
+      setRequestedRideIds((prev) => [...prev, rideId]);
+      showAlert(
         'Demande envoyée',
-        'Ton point de rendez-vous a bien été ajouté à ce trajet.'
+        `Ta demande (#${stop_id}) pour rejoindre ce covoiturage a bien été envoyée au conducteur.`
       );
       router.push('/map');
     } catch (requestError: unknown) {
@@ -220,17 +266,18 @@ export default function SearchRide() {
         router.replace('/sign-in');
         return;
       }
+      const rawMessage =
+        requestError instanceof Error ? requestError.message : 'Impossible de rejoindre ce trajet.';
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Impossible de rejoindre ce trajet.'
+        rawMessage.includes('only be created for car rides')
+          ? 'Tu ne peux envoyer une demande de covoiturage que sur un trajet en voiture.'
+          : rawMessage
       );
     } finally {
       setJoiningRideId(null);
     }
   }
 
-  // Point de départ converti une seule fois pour tout le rendu (calcul des distances)
   const startLat = parseCoord(latStart, -90, 90);
   const startLng = parseCoord(lngStart, -180, 180);
 
@@ -247,7 +294,7 @@ export default function SearchRide() {
 
         <View style={styles.card}>
           <View style={styles.rowBetween}>
-            <Text style={styles.label}>Point de départ</Text>
+            <Text style={styles.label}>Point de départ (et lieu de prise en charge)</Text>
             <Pressable onPress={handleUseCurrentLocation}>
               <Text style={styles.linkText}>Ma position GPS</Text>
             </Pressable>
@@ -352,7 +399,7 @@ export default function SearchRide() {
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>Aucun trajet disponible</Text>
             <Text style={styles.emptyText}>
-              Essaie d’élargir le rayon de recherche (ex : 1 km) ou de modifier l’horaire.
+              Essaie d’élargir le rayon de recherche (ex : 2 km) ou de modifier l’horaire.
             </Text>
           </View>
         ) : null}
@@ -365,21 +412,34 @@ export default function SearchRide() {
                 : null;
 
             const isJoining = joiningRideId === ride.ride_id;
+            const alreadyRequested = requestedRideIds.includes(ride.ride_id);
+            const isCarRide = infos ? infos.type === 0 : true;
+            const typeLabel =
+              infos !== undefined ? RIDE_TYPE_LABELS[infos.type] ?? 'AUTRE' : null;
 
             return (
               <View key={ride.ride_id} style={styles.resultCard}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.driverName}>{ride.user_name}</Text>
-                  {infos?.type ? (
+                  <Text style={styles.driverName}>
+                    {ride.user_name ?? `Trajet #${ride.ride_id}`}
+                  </Text>
+                  {typeLabel ? (
                     <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{infos.type.toUpperCase()}</Text>
+                      <Text style={styles.badgeText}>{typeLabel}</Text>
                     </View>
                   ) : null}
                 </View>
 
                 {infos ? (
                   <Text style={styles.infoLine}>
-                    Départ : {infos.ride_start} • Arrivée prévue : {infos.ride_goal_time}
+                    Départ : {formatTime(infos.ride_start)} • Arrivée prévue :{' '}
+                    {formatTime(infos.ride_goal_time)}
+                  </Text>
+                ) : null}
+
+                {ride.remaining_seats !== undefined ? (
+                  <Text style={styles.infoLine}>
+                    Places restantes : {ride.remaining_seats}
                   </Text>
                 ) : null}
 
@@ -395,24 +455,34 @@ export default function SearchRide() {
 
                 {infos ? (
                   <Text style={styles.coordsText}>
-                    Passagers inscrits : {infos.stops.length}
+                    Demandes / arrêts : {infos.stops.length}
                   </Text>
                 ) : null}
 
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => handleJoinRide(ride.ride_id)}
-                  disabled={isJoining}
-                  style={({ pressed }) => [
-                    styles.joinButton,
-                    pressed && styles.pressed,
-                    isJoining && styles.disabled,
-                  ]}
-                >
-                  <Text style={styles.joinButtonText}>
-                    {isJoining ? 'Inscription...' : 'Rejoindre ce trajet'}
+                {isCarRide ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => handleJoinRide(ride.ride_id, infos?.stops.length ?? 0)}
+                    disabled={isJoining || alreadyRequested}
+                    style={({ pressed }) => [
+                      styles.joinButton,
+                      pressed && styles.pressed,
+                      (isJoining || alreadyRequested) && styles.disabled,
+                    ]}
+                  >
+                    <Text style={styles.joinButtonText}>
+                      {isJoining
+                        ? 'Envoi de la demande...'
+                        : alreadyRequested
+                        ? 'Demande envoyée'
+                        : 'Envoyer une demande'}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text style={styles.coordsText}>
+                    Demande de covoiturage réservée aux trajets en voiture.
                   </Text>
-                </Pressable>
+                )}
               </View>
             );
           })}
